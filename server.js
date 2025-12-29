@@ -55,9 +55,9 @@ app.get('/api/containers', async (req, res) => {
       .map((suffix, index) => {
         const ip = `${IP_PREFIX}${suffix}`;
         return {
-          name: `booker-${index + 1}`,
+          name: `${index + 1}`,
           ip: ip,
-          vncUrl: `${VNC_BASE_URL}?ip=${ip}`
+          vncUrl: `${VNC_BASE_URL}#host=${INCUS_SERVER}&port=${INCUS_PORT}&autoconnect=true&scaling=local&path=websockify?token=${ip}`
         };
       });
     
