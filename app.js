@@ -26,18 +26,30 @@ let selectedContainers = new Set();
 // Charger la configuration puis les containers au démarrage
 async function init() {
     try {
+        loading.style.display = 'block';
         const configResponse = await fetch(CONFIG_API_URL);
+        
+        if (!configResponse.ok) {
+            throw new Error(`Erreur HTTP ${configResponse.status}: ${configResponse.statusText}`);
+        }
+        
         const config = await configResponse.json();
+        
+        if (!config.incusServer || !config.incusPort || !config.ipPrefix) {
+            throw new Error('Configuration incomplète reçue du serveur');
+        }
+        
         INCUS_SERVER = config.incusServer;
         INCUS_PORT = config.incusPort;
         IP_PREFIX = config.ipPrefix;
         VNC_BASE_URL = `https://${INCUS_SERVER}:${INCUS_PORT}/vnc.html`;
         
         // Charger les containers une fois la config chargée
-        loadContainersFromAPI();
+        await loadContainersFromAPI();
         loadContainers();
     } catch (err) {
         console.error('Erreur lors du chargement de la configuration:', err);
+        loading.style.display = 'none';
         error.textContent = `Erreur lors du chargement de la configuration: ${err.message}`;
         error.style.display = 'block';
     }
