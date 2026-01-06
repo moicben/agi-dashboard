@@ -3,33 +3,167 @@ const loading = document.getElementById('loading');
 const error = document.getElementById('error');
 const refreshBtn = document.getElementById('refreshBtn');
 const countEl = document.getElementById('count');
-const containersInput = document.getElementById('containersInput');
+const dropdownBtn = document.getElementById('dropdownBtn');
+const dropdownBtnText = document.getElementById('dropdownBtnText');
+const dropdownMenu = document.getElementById('dropdownMenu');
+const dropdownList = document.getElementById('dropdownList');
+const selectAllBtn = document.getElementById('selectAllBtn');
+const deselectAllBtn = document.getElementById('deselectAllBtn');
 
-// Configuration
-const INCUS_SERVER = '109.176.198.25';
-const INCUS_PORT = '9443';
-const IP_PREFIX = '10.225.44.';
-const VNC_BASE_URL = `https://${INCUS_SERVER}:${INCUS_PORT}/vnc.html`;
+// Configuration (chargée depuis l'API)
+let INCUS_SERVER = '';
+let INCUS_PORT = '';
+let IP_PREFIX = '';
+let VNC_BASE_URL = '';
+// Utiliser le proxy serveur pour éviter les problèmes CORS
+const INCUS_API_URL = '/api/instances';
+const CONFIG_API_URL = '/api/config';
 
-// Charger les containers au démarrage
-loadContainers();
+// État des containers
+let allContainers = [];
+let selectedContainers = new Set();
+
+// Charger la configuration puis les containers au démarrage
+async function init() {
+    try {
+        const configResponse = await fetch(CONFIG_API_URL);
+        const config = await configResponse.json();
+        INCUS_SERVER = config.incusServer;
+        INCUS_PORT = config.incusPort;
+        IP_PREFIX = config.ipPrefix;
+        VNC_BASE_URL = `https://${INCUS_SERVER}:${INCUS_PORT}/vnc.html`;
+        
+        // Charger les containers une fois la config chargée
+        loadContainersFromAPI();
+        loadContainers();
+    } catch (err) {
+        console.error('Erreur lors du chargement de la configuration:', err);
+        error.textContent = `Erreur lors du chargement de la configuration: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+init();
 
 // Écouter le bouton d'actualisation
 refreshBtn.addEventListener('click', () => {
+    loadContainersFromAPI();
     loadContainers();
 });
 
-// Écouter la touche Entrée dans l'input
-containersInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        loadContainers();
+// Toggle dropdown
+dropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'block' : 'none';
+});
+
+// Fermer le dropdown en cliquant ailleurs
+document.addEventListener('click', (e) => {
+    if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+        dropdownMenu.style.display = 'none';
     }
 });
 
-// Écouter les changements dans l'input (optionnel, pour mise à jour en temps réel)
-containersInput.addEventListener('blur', () => {
+// Boutons sélectionner/désélectionner tout
+selectAllBtn.addEventListener('click', () => {
+    allContainers.forEach(container => selectedContainers.add(container.name));
+    updateDropdownDisplay();
     loadContainers();
 });
+
+deselectAllBtn.addEventListener('click', () => {
+    selectedContainers.clear();
+    updateDropdownDisplay();
+    loadContainers();
+});
+
+// Récupérer les containers depuis l'API Incus via le proxy serveur
+async function loadContainersFromAPI() {
+    try {
+        const response = await fetch(INCUS_API_URL);
+        
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Le serveur retourne déjà les containers traités
+        if (data.containers && Array.isArray(data.containers)) {
+            allContainers = data.containers;
+            updateDropdownDisplay();
+        } else {
+            console.warn('Format de données API non reconnu:', data);
+            allContainers = [];
+        }
+    } catch (err) {
+        console.error('Erreur lors de la récupération des containers:', err);
+        error.textContent = `Erreur lors de la récupération: ${err.message}`;
+        error.style.display = 'block';
+        allContainers = [];
+    }
+}
+
+// Mettre à jour l'affichage du dropdown
+function updateDropdownDisplay() {
+    if (allContainers.length === 0) {
+        dropdownList.innerHTML = '<div class="dropdown-empty">Aucun container disponible</div>';
+        return;
+    }
+    
+    // Sélectionner "scheduler" par défaut si aucun container n'est sélectionné
+    if (selectedContainers.size === 0) {
+        const schedulerContainer = allContainers.find(c => c.name === 'scheduler');
+        if (schedulerContainer) {
+            selectedContainers.add('scheduler');
+        }
+    }
+    
+    dropdownList.innerHTML = allContainers.map(container => `
+        <label class="dropdown-item">
+            <input 
+                type="checkbox" 
+                value="${container.name}"
+                ${selectedContainers.has(container.name) ? 'checked' : ''}
+                class="container-checkbox">
+            <span class="container-name" title="${container.name}">${container.name}</span>
+        </label>
+    `).join('');
+    
+    // Ajouter les event listeners aux checkboxes
+    dropdownList.querySelectorAll('.container-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            const containerName = e.target.value;
+            if (e.target.checked) {
+                selectedContainers.add(containerName);
+            } else {
+                selectedContainers.delete(containerName);
+            }
+            updateDropdownButtonText();
+            loadContainers();
+        });
+    });
+    
+    updateDropdownButtonText();
+    
+    // Charger les containers si scheduler a été sélectionné par défaut
+    if (selectedContainers.size > 0) {
+        loadContainers();
+    }
+}
+
+// Mettre à jour le texte du bouton dropdown
+function updateDropdownButtonText() {
+    const count = selectedContainers.size;
+    if (count === 0) {
+        dropdownBtnText.textContent = 'Sélectionner des containers';
+    } else {
+        // Afficher les noms des containers sélectionnés séparés par des virgules
+        const selectedNames = Array.from(selectedContainers);
+        const namesText = selectedNames.join(', ');
+        dropdownBtnText.textContent = namesText;
+    }
+}
 
 function loadContainers() {
     loading.style.display = 'block';
@@ -37,36 +171,27 @@ function loadContainers() {
     grid.innerHTML = '';
     
     try {
-        const inputValue = containersInput.value.trim();
-        
-        if (!inputValue) {
+        if (selectedContainers.size === 0) {
             displayContainers([]);
             countEl.textContent = '0 containers';
             loading.style.display = 'none';
             return;
         }
         
-        // Parser les numéros séparés par des virgules
-        const ipSuffixes = inputValue.split(',')
-            .map(s => s.trim())
-            .filter(s => s); // Filtrer les valeurs vides
-        
-        if (ipSuffixes.length === 0) {
-            displayContainers([]);
-            countEl.textContent = '0 containers';
-            loading.style.display = 'none';
-            return;
-        }
-        
-        // Générer les containers avec noms et IPs automatiques
-        const containers = ipSuffixes.map((suffix, index) => {
-            const ip = `${IP_PREFIX}${suffix}`;
-            return {
-                name: `${index + 1}`,
-                ip: ip,
-                vncUrl: `${VNC_BASE_URL}#host=${INCUS_SERVER}&port=${INCUS_PORT}&autoconnect=true&scaling=local&path=websockify?token=${ip}`
-            };
-        });
+        // Générer les containers sélectionnés avec leurs IPs
+        const containers = Array.from(selectedContainers)
+            .map(containerName => {
+                const container = allContainers.find(c => c.name === containerName);
+                if (!container || !container.ip) {
+                    return null;
+                }
+                return {
+                    name: container.name,
+                    ip: container.ip,
+                    vncUrl: `${VNC_BASE_URL}#host=${INCUS_SERVER}&port=${INCUS_PORT}&autoconnect=true&scaling=local&path=websockify?token=${container.ip}`
+                };
+            })
+            .filter(c => c !== null);
         
         displayContainers(containers);
         countEl.textContent = `${containers.length} container${containers.length !== 1 ? 's' : ''}`;
@@ -86,7 +211,7 @@ function displayContainers(containers) {
         grid.innerHTML = `
             <div class="empty-state">
                 <h2>Aucun container</h2>
-                <p>Saisissez les numéros de containers dans le champ ci-dessus (ex: 181,182,183)</p>
+                <p>Sélectionnez des containers dans le menu déroulant ci-dessus</p>
             </div>
         `;
         grid.classList.remove('grid-single');

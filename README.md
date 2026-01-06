@@ -12,33 +12,44 @@ Une application web simple pour visualiser tous vos containers Incus commençant
 
 ## Configuration
 
-### Variables d'environnement Vercel
+### Variables d'environnement
 
-Dans votre projet Vercel, configurez les variables d'environnement suivantes :
+Toutes les valeurs sensibles sont stockées dans un fichier `.env` à la racine du projet.
 
-1. **CONTAINERS** : Liste JSON des containers (optionnel si vous utilisez l'API Incus)
+1. **Créez un fichier `.env`** à partir du template `.env.example` :
+   ```bash
+   cp .env.example .env
    ```
-   Format: {"name":"booker-1","ip":"10.225.44.181"},{"name":"booker-2","ip":"10.225.44.182"}
+
+2. **Configurez les variables suivantes dans `.env`** :
+
+   ```env
+   # Configuration Incus
+   INCUS_SERVER=109.176.198.25
+   INCUS_PORT=9443
+   IP_PREFIX=10.225.44.
+
+   # API Incus
+   INCUS_API_URL=https://agi.worksbase.pro/instances
+   INCUS_API_KEY=your-api-key-here
+
+   # Port du serveur (optionnel)
+   PORT=3000
    ```
 
-2. **INCUS_SERVER** : Adresse du serveur Incus (optionnel, défaut: 109.176.198.25)
-3. **INCUS_PORT** : Port du serveur Incus (optionnel, défaut: 9443)
+3. **Variables d'environnement disponibles** :
+   - `INCUS_SERVER` : Adresse du serveur Incus (requis)
+   - `INCUS_PORT` : Port du serveur Incus (requis)
+   - `IP_PREFIX` : Préfixe IP des containers (requis)
+   - `INCUS_API_URL` : URL de l'API Incus pour récupérer les instances (requis)
+   - `INCUS_API_KEY` : Clé API pour authentifier les requêtes vers l'API Incus (requis)
+   - `PORT` : Port sur lequel le serveur Express écoute (optionnel, défaut: 3000)
 
-### Configuration manuelle
+### Sécurité
 
-Si vous préférez configurer directement dans le code, modifiez `api/containers.js` :
+⚠️ **Important** : Le fichier `.env` contient des informations sensibles et ne doit **jamais** être commité dans Git. Il est déjà inclus dans `.gitignore`.
 
-```javascript
-// Option 1: Liste statique
-const containers = [
-    { name: 'booker-1', ip: '10.225.44.181' },
-    { name: 'booker-2', ip: '10.225.44.182' },
-    // ... autres containers
-];
-
-// Option 2: Utiliser l'API Incus
-// Implémentez votre logique de récupération ici
-```
+Pour le déploiement sur Vercel ou d'autres plateformes, configurez ces variables d'environnement dans le dashboard de votre plateforme.
 
 ## Déploiement sur Vercel
 
