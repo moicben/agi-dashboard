@@ -1,18 +1,9 @@
-// Vérifier que tous les éléments DOM existent
-const grid = document.getElementById('grid');
-const loading = document.getElementById('loading');
-const error = document.getElementById('error');
-const countEl = document.getElementById('count');
-const modeSwitcher = document.getElementById('modeSwitcher');
-
-// Vérifier que tous les éléments critiques existent
-if (!grid || !loading || !error || !countEl || !modeSwitcher) {
-    console.error('Erreur: Certains éléments DOM sont manquants');
-    if (error) {
-        error.textContent = 'Erreur: Éléments DOM manquants. Vérifiez que tous les éléments sont présents dans le HTML.';
-        error.style.display = 'block';
-    }
-}
+// Variables pour les éléments DOM (seront initialisées après le chargement du DOM)
+let grid = null;
+let loading = null;
+let error = null;
+let countEl = null;
+let modeSwitcher = null;
 
 // Configuration (chargée depuis l'API)
 let INCUS_SERVER = '';
@@ -38,10 +29,30 @@ let allContainers = [];
 let currentMode = 'scheduler'; // 'all' ou 'scheduler'
 let containersCache = new Map(); // Cache des éléments DOM des containers
 
+// Initialiser les références aux éléments DOM
+function initDOMElements() {
+    grid = document.getElementById('grid');
+    loading = document.getElementById('loading');
+    error = document.getElementById('error');
+    countEl = document.getElementById('count');
+    modeSwitcher = document.getElementById('modeSwitcher');
+    
+    // Vérifier que tous les éléments critiques existent
+    if (!grid || !loading || !error || !countEl || !modeSwitcher) {
+        console.error('Erreur: Certains éléments DOM sont manquants');
+        if (error) {
+            error.textContent = 'Erreur: Éléments DOM manquants. Vérifiez que tous les éléments sont présents dans le HTML.';
+            error.style.display = 'block';
+        }
+        return false;
+    }
+    return true;
+}
+
 // Charger la configuration puis les containers au démarrage
 async function init() {
-    // Vérifier que les éléments critiques existent
-    if (!loading || !error) {
+    // Initialiser les éléments DOM d'abord
+    if (!initDOMElements()) {
         console.error('Éléments DOM critiques manquants');
         return;
     }
@@ -64,6 +75,9 @@ async function init() {
         IP_PREFIX = config.ipPrefix;
         VNC_BASE_URL = `${INCUS_SERVER}/vnc.html`;
         
+        // Configurer le switcher de mode maintenant que les éléments DOM sont initialisés
+        setupModeSwitcher();
+        
         // Charger les containers une fois la config chargée
         await loadContainersFromAPI();
         // Attendre que le DOM soit prêt pour calculer les positions
@@ -83,15 +97,10 @@ async function init() {
     }
 }
 
-// Attendre que le DOM soit complètement chargé
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
-
-// Gérer le switcher de mode
-if (modeSwitcher) {
+// Configurer le switcher de mode
+function setupModeSwitcher() {
+    if (!modeSwitcher) return;
+    
     modeSwitcher.addEventListener('click', (e) => {
         const clickedMode = e.target.dataset.mode;
         if (clickedMode && clickedMode !== currentMode) {
@@ -108,6 +117,13 @@ if (modeSwitcher) {
     window.addEventListener('resize', () => {
         updateModeSwitcher();
     });
+}
+
+// Attendre que le DOM soit complètement chargé
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
 }
 
 // Mettre à jour l'affichage du switcher
