@@ -25,8 +25,7 @@ Toutes les valeurs sensibles sont stockées dans un fichier `.env` à la racine 
 
    ```env
    # Configuration Incus
-   INCUS_SERVER=109.176.198.25
-   INCUS_PORT=9443
+   INCUS_SERVER=https://agi.worksbase.pro
    IP_PREFIX=10.225.44.
 
    # API Incus
@@ -38,8 +37,7 @@ Toutes les valeurs sensibles sont stockées dans un fichier `.env` à la racine 
    ```
 
 3. **Variables d'environnement disponibles** :
-   - `INCUS_SERVER` : Adresse du serveur Incus (requis)
-   - `INCUS_PORT` : Port du serveur Incus (requis)
+   - `INCUS_SERVER` : URL complète du serveur Incus (format: `https://domain.com` ou `https://domain.com:port`) (requis)
    - `IP_PREFIX` : Préfixe IP des containers (requis)
    - `INCUS_API_URL` : URL de l'API Incus pour récupérer les instances (requis)
    - `INCUS_API_KEY` : Clé API pour authentifier les requêtes vers l'API Incus (requis)
@@ -89,7 +87,7 @@ vercel dev
 ## Notes
 
 - Les containers sont filtrés pour n'afficher que ceux commençant par "booker-"
-- L'URL VNC est générée automatiquement : `https://{INCUS_SERVER}:{INCUS_PORT}/vnc.html?ip={IP}`
+- L'URL VNC est générée automatiquement à partir de `INCUS_SERVER` : `{INCUS_SERVER}/vnc.html?ip={IP}`
 - La grille s'adapte automatiquement selon la taille de l'écran
 - Actualisation automatique toutes les 30 secondes
 

@@ -1,8 +1,20 @@
 export default async function handler(req, res) {
   // Configuration
-  const INCUS_SERVER = process.env.INCUS_SERVER || '109.176.198.25';
-  const INCUS_PORT = process.env.INCUS_PORT || '9443';
-  const VNC_BASE_URL = `https://${INCUS_SERVER}:${INCUS_PORT}/vnc.html`;
+  const INCUS_SERVER = process.env.INCUS_SERVER || 'https://agi.worksbase.pro';
+  
+  // Fonction pour extraire le hostname depuis l'URL complète
+  function extractHostname(url) {
+    try {
+      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+      return urlObj.hostname;
+    } catch {
+      // Si l'URL n'a pas de protocole, retourner tel quel
+      return url.replace(/^https?:\/\//, '').split(':')[0].split('/')[0];
+    }
+  }
+  
+  const INCUS_HOST = extractHostname(INCUS_SERVER);
+  const VNC_BASE_URL = `${INCUS_SERVER}/vnc.html`;
   
   try {
     // Note: Pour obtenir la liste des containers depuis Incus,

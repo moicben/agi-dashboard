@@ -11,12 +11,24 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuration depuis les variables d'environnement
-const INCUS_SERVER = process.env.INCUS_SERVER || '109.176.198.25';
-const INCUS_PORT = process.env.INCUS_PORT || '9443';
+const INCUS_SERVER = process.env.INCUS_SERVER || 'https://agi.worksbase.pro';
 const IP_PREFIX = process.env.IP_PREFIX || '10.225.44.';
 const INCUS_API_URL = process.env.INCUS_API_URL || 'https://agi.worksbase.pro/instances';
 const INCUS_API_KEY = process.env.INCUS_API_KEY || '';
-const VNC_BASE_URL = `https://${INCUS_SERVER}:${INCUS_PORT}/vnc.html`;
+
+// Fonction pour extraire le hostname depuis l'URL complète
+function extractHostname(url) {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return urlObj.hostname;
+  } catch {
+    // Si l'URL n'a pas de protocole, retourner tel quel
+    return url.replace(/^https?:\/\//, '').split(':')[0].split('/')[0];
+  }
+}
+
+const INCUS_HOST = extractHostname(INCUS_SERVER);
+const VNC_BASE_URL = `${INCUS_SERVER}/vnc.html`;
 
 // Middleware pour parser le JSON
 app.use(express.json());
@@ -30,7 +42,6 @@ app.get('/api/config', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.status(200).json({
     incusServer: INCUS_SERVER,
-    incusPort: INCUS_PORT,
     ipPrefix: IP_PREFIX
   });
 });
@@ -144,7 +155,7 @@ app.get('/api/containers', async (req, res) => {
         return {
           name: `${index + 1}`,
           ip: ip,
-          vncUrl: `${VNC_BASE_URL}#host=${INCUS_SERVER}&port=${INCUS_PORT}&autoconnect=true&scaling=local&path=websockify?token=${ip}`
+          vncUrl: `${VNC_BASE_URL}#host=${INCUS_HOST}&autoconnect=true&scaling=local&path=websockify?token=${ip}`
         };
       });
     

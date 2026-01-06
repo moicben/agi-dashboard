@@ -1,15 +1,13 @@
 export default async function handler(req, res) {
   try {
     // Configuration depuis les variables d'environnement
-    const INCUS_SERVER = process.env.INCUS_SERVER || '109.176.198.25';
-    const INCUS_PORT = process.env.INCUS_PORT || '9443';
+    const INCUS_SERVER = process.env.INCUS_SERVER || 'https://agi.worksbase.pro';
     const IP_PREFIX = process.env.IP_PREFIX || '10.225.44.';
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json({
       incusServer: INCUS_SERVER,
-      incusPort: INCUS_PORT,
       ipPrefix: IP_PREFIX
     });
   } catch (error) {

@@ -23,9 +23,19 @@ if (!grid || !loading || !error || !refreshBtn || !countEl || !dropdownBtn ||
 
 // Configuration (chargée depuis l'API)
 let INCUS_SERVER = '';
-let INCUS_PORT = '';
 let IP_PREFIX = '';
 let VNC_BASE_URL = '';
+
+// Fonction pour extraire le hostname depuis l'URL complète
+function extractHostname(url) {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return urlObj.hostname;
+  } catch {
+    // Si l'URL n'a pas de protocole, retourner tel quel
+    return url.replace(/^https?:\/\//, '').split(':')[0].split('/')[0];
+  }
+}
 // Utiliser le proxy serveur pour éviter les problèmes CORS
 const INCUS_API_URL = '/api/instances';
 const CONFIG_API_URL = '/api/config';
@@ -52,14 +62,13 @@ async function init() {
         
         const config = await configResponse.json();
         
-        if (!config.incusServer || !config.incusPort || !config.ipPrefix) {
+        if (!config.incusServer || !config.ipPrefix) {
             throw new Error('Configuration incomplète reçue du serveur');
         }
         
         INCUS_SERVER = config.incusServer;
-        INCUS_PORT = config.incusPort;
         IP_PREFIX = config.ipPrefix;
-        VNC_BASE_URL = `https://${INCUS_SERVER}:${INCUS_PORT}/vnc.html`;
+        VNC_BASE_URL = `${INCUS_SERVER}/vnc.html`;
         
         // Charger les containers une fois la config chargée
         await loadContainersFromAPI();
@@ -239,6 +248,7 @@ function loadContainers() {
         }
         
         // Générer les containers sélectionnés avec leurs IPs
+        const INCUS_HOST = extractHostname(INCUS_SERVER);
         const containers = Array.from(selectedContainers)
             .map(containerName => {
                 const container = allContainers.find(c => c.name === containerName);
@@ -248,7 +258,7 @@ function loadContainers() {
                 return {
                     name: container.name,
                     ip: container.ip,
-                    vncUrl: `${VNC_BASE_URL}#host=${INCUS_SERVER}&port=${INCUS_PORT}&autoconnect=true&scaling=local&path=websockify?token=${container.ip}`
+                    vncUrl: `${VNC_BASE_URL}#host=${INCUS_HOST}&autoconnect=true&scaling=local&path=websockify?token=${container.ip}`
                 };
             })
             .filter(c => c !== null);
