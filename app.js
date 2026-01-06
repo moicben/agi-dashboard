@@ -1,3 +1,4 @@
+// Vérifier que tous les éléments DOM existent
 const grid = document.getElementById('grid');
 const loading = document.getElementById('loading');
 const error = document.getElementById('error');
@@ -9,6 +10,16 @@ const dropdownMenu = document.getElementById('dropdownMenu');
 const dropdownList = document.getElementById('dropdownList');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const deselectAllBtn = document.getElementById('deselectAllBtn');
+
+// Vérifier que tous les éléments critiques existent
+if (!grid || !loading || !error || !refreshBtn || !countEl || !dropdownBtn || 
+    !dropdownBtnText || !dropdownMenu || !dropdownList || !selectAllBtn || !deselectAllBtn) {
+    console.error('Erreur: Certains éléments DOM sont manquants');
+    if (error) {
+        error.textContent = 'Erreur: Éléments DOM manquants. Vérifiez que tous les éléments sont présents dans le HTML.';
+        error.style.display = 'block';
+    }
+}
 
 // Configuration (chargée depuis l'API)
 let INCUS_SERVER = '';
@@ -25,8 +36,14 @@ let selectedContainers = new Set();
 
 // Charger la configuration puis les containers au démarrage
 async function init() {
+    // Vérifier que les éléments critiques existent
+    if (!loading || !error) {
+        console.error('Éléments DOM critiques manquants');
+        return;
+    }
+    
     try { 
-        loading.style.display = 'block';
+        if (loading) loading.style.display = 'block';
         const configResponse = await fetch(CONFIG_API_URL);
         
         if (!configResponse.ok) {
@@ -49,45 +66,62 @@ async function init() {
         loadContainers();
     } catch (err) {
         console.error('Erreur lors du chargement de la configuration:', err);
-        loading.style.display = 'none';
-        error.textContent = `Erreur lors du chargement de la configuration: ${err.message}`;
-        error.style.display = 'block';
+        if (loading) loading.style.display = 'none';
+        if (error) {
+            error.textContent = `Erreur lors du chargement de la configuration: ${err.message}`;
+            error.style.display = 'block';
+        }
     }
 }
 
-init();
+// Attendre que le DOM soit complètement chargé
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 
-// Écouter le bouton d'actualisation
-refreshBtn.addEventListener('click', () => {
-    loadContainersFromAPI();
-    loadContainers();
-});
+// Initialiser les event listeners seulement si les éléments existent
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+        loadContainersFromAPI();
+        loadContainers();
+    });
+}
 
 // Toggle dropdown
-dropdownBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'block' : 'none';
-});
+if (dropdownBtn && dropdownMenu) {
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'block' : 'none';
+    });
+}
 
 // Fermer le dropdown en cliquant ailleurs
-document.addEventListener('click', (e) => {
-    if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
-        dropdownMenu.style.display = 'none';
-    }
-});
+if (dropdownBtn && dropdownMenu) {
+    document.addEventListener('click', (e) => {
+        if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            dropdownMenu.style.display = 'none';
+        }
+    });
+}
 
 // Boutons sélectionner/désélectionner tout
-selectAllBtn.addEventListener('click', () => {
-    allContainers.forEach(container => selectedContainers.add(container.name));
-    updateDropdownDisplay();
-    loadContainers();
-});
+if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', () => {
+        allContainers.forEach(container => selectedContainers.add(container.name));
+        updateDropdownDisplay();
+        loadContainers();
+    });
+}
 
-deselectAllBtn.addEventListener('click', () => {
-    selectedContainers.clear();
-    updateDropdownDisplay();
-    loadContainers();
-});
+if (deselectAllBtn) {
+    deselectAllBtn.addEventListener('click', () => {
+        selectedContainers.clear();
+        updateDropdownDisplay();
+        loadContainers();
+    });
+}
 
 // Récupérer les containers depuis l'API Incus via le proxy serveur
 async function loadContainersFromAPI() {
@@ -110,14 +144,21 @@ async function loadContainersFromAPI() {
         }
     } catch (err) {
         console.error('Erreur lors de la récupération des containers:', err);
-        error.textContent = `Erreur lors de la récupération: ${err.message}`;
-        error.style.display = 'block';
+        if (error) {
+            error.textContent = `Erreur lors de la récupération: ${err.message}`;
+            error.style.display = 'block';
+        }
         allContainers = [];
     }
 }
 
 // Mettre à jour l'affichage du dropdown
 function updateDropdownDisplay() {
+    if (!dropdownList) {
+        console.error('dropdownList est null');
+        return;
+    }
+    
     if (allContainers.length === 0) {
         dropdownList.innerHTML = '<div class="dropdown-empty">Aucun container disponible</div>';
         return;
@@ -166,6 +207,8 @@ function updateDropdownDisplay() {
 
 // Mettre à jour le texte du bouton dropdown
 function updateDropdownButtonText() {
+    if (!dropdownBtnText) return;
+    
     const count = selectedContainers.size;
     if (count === 0) {
         dropdownBtnText.textContent = 'Sélectionner des containers';
@@ -178,6 +221,11 @@ function updateDropdownButtonText() {
 }
 
 function loadContainers() {
+    if (!loading || !error || !grid) {
+        console.error('Éléments DOM manquants dans loadContainers');
+        return;
+    }
+    
     loading.style.display = 'block';
     error.style.display = 'none';
     grid.innerHTML = '';
@@ -185,7 +233,7 @@ function loadContainers() {
     try {
         if (selectedContainers.size === 0) {
             displayContainers([]);
-            countEl.textContent = '0 containers';
+            if (countEl) countEl.textContent = '0 containers';
             loading.style.display = 'none';
             return;
         }
@@ -206,19 +254,26 @@ function loadContainers() {
             .filter(c => c !== null);
         
         displayContainers(containers);
-        countEl.textContent = `${containers.length} container${containers.length !== 1 ? 's' : ''}`;
+        if (countEl) countEl.textContent = `${containers.length} container${containers.length !== 1 ? 's' : ''}`;
         
     } catch (err) {
         console.error('Erreur:', err);
-        error.textContent = `Erreur: ${err.message}`;
-        error.style.display = 'block';
-        grid.innerHTML = '';
+        if (error) {
+            error.textContent = `Erreur: ${err.message}`;
+            error.style.display = 'block';
+        }
+        if (grid) grid.innerHTML = '';
     } finally {
-        loading.style.display = 'none';
+        if (loading) loading.style.display = 'none';
     }
 }
 
 function displayContainers(containers) {
+    if (!grid) {
+        console.error('grid est null dans displayContainers');
+        return;
+    }
+    
     if (containers.length === 0) {
         grid.innerHTML = `
             <div class="empty-state">
