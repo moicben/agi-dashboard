@@ -44,26 +44,130 @@ header h1 {
     gap: 12px;
 }
 
-.containers-input {
-    padding: 8px 12px;
-    background: #0a0a0a;
+/* Dropdown */
+.dropdown-container {
+    position: relative;
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+}
+
+.dropdown-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+    text-align: left;
+    overflow: hidden;
+}
+
+#dropdownBtnText {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: calc(220px - 30px); /* Largeur du bouton moins l'espace pour la flèche */
+    text-align: left;
+}
+
+.dropdown-arrow {
+    font-size: 10px;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+}
+
+.dropdown-btn:hover .dropdown-arrow {
+    opacity: 1;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: #111111;
     border: 1px solid #2a2a2a;
     border-radius: 6px;
+    z-index: 1000;
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dropdown-header {
+    padding: 8px;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    gap: 8px;
+}
+
+.btn-small {
+    background: #0a0a0a;
+    color: #e0e0e0;
+    border: 1px solid #2a2a2a;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 400;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    flex: 1;
+}
+
+.btn-small:hover {
+    background: #1a1a1a;
+    border-color: #333;
+}
+
+.dropdown-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.dropdown-item:hover {
+    background: #1a1a1a;
+}
+
+.container-checkbox {
+    cursor: pointer;
+    accent-color: #444;
+}
+
+.container-name {
+    flex: 1;
     font-size: 13px;
     color: #e0e0e0;
-    min-width: 180px;
-    transition: border-color 0.2s ease;
-    font-family: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
-.containers-input::placeholder {
+.dropdown-loading,
+.dropdown-empty {
+    padding: 20px;
+    text-align: center;
     color: #666;
-}
-
-.containers-input:focus {
-    outline: none;
-    border-color: #444;
-    background: #0f0f0f;
+    font-size: 13px;
 }
 
 .btn {
@@ -210,9 +314,13 @@ header h1 {
         flex-wrap: wrap;
     }
     
-    .containers-input {
+    .dropdown-container {
         flex: 1;
         min-width: 100%;
+    }
+    
+    .dropdown-menu {
+        right: 0;
     }
     
 }
