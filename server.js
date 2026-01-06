@@ -21,7 +21,7 @@ const VNC_BASE_URL = `https://${INCUS_SERVER}:${INCUS_PORT}/vnc.html`;
 // Middleware pour parser le JSON
 app.use(express.json());
 
-// Servir les fichiers statiques
+// Servir les fichiers statiques 
 app.use(express.static(__dirname));
 
 // Route API pour récupérer la configuration (valeurs non sensibles)
