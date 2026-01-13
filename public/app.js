@@ -279,15 +279,15 @@ function synchronizeContainersDOM(previousContainers, newContainersMap) {
     });
 }
 
-// Obtenir tous les containers à précharger (c-template + b-template + tous les autres actifs)
+// Obtenir tous les containers à précharger (c-template + b-template + wireguard + tous les autres actifs)
 function getAllContainersToPreload() {
     if (allContainers.length === 0) {
         return [];
     }
     
-    // Inclure c-template + b-template + tous les autres containers actifs
+    // Inclure c-template + b-template + wireguard + tous les autres containers actifs
     return allContainers.filter(c => 
-        c.name === 'c-template' || c.name === 'b-template' || (c.name !== 'c-template' && c.name !== 'b-template' && c.status === 'Running')
+        c.name === 'c-template' || c.name === 'b-template' || c.name === 'wireguard' || (c.name !== 'c-template' && c.name !== 'b-template' && c.name !== 'wireguard' && c.status === 'Running')
     );
 }
 
@@ -298,11 +298,11 @@ function getContainersToDisplay() {
     }
     
     if (currentMode === 'dev') {
-        // Mode Dev : c-template + b-template
-        return allContainers.filter(c => c.name === 'c-template' || c.name === 'b-template');
+        // Mode Dev : c-template + b-template + wireguard
+        return allContainers.filter(c => c.name === 'c-template' || c.name === 'b-template' || c.name === 'wireguard');
     } else {
-        // Mode All : tous les containers actifs sauf c-template et b-template
-        return allContainers.filter(c => c.name !== 'c-template' && c.name !== 'b-template' && c.status === 'Running');
+        // Mode All : tous les containers actifs sauf c-template, b-template et wireguard
+        return allContainers.filter(c => c.name !== 'c-template' && c.name !== 'b-template' && c.name !== 'wireguard' && c.status === 'Running');
     }
 }
 
