@@ -315,15 +315,15 @@ function synchronizeContainersDOM(previousContainers, newContainersMap) {
     });
 }
 
-// Obtenir tous les containers à précharger (c-template + b-template + wireguard + android + tous les autres actifs)
+// Obtenir tous les containers à précharger (c-template + b-template + wireguard + android + c-test + tous les autres actifs)
 function getAllContainersToPreload() {
     if (allContainers.length === 0) {
         return [];
     }
     
-    // Inclure c-template + b-template + wireguard + android + tous les autres containers actifs
+    // Inclure c-template + b-template + wireguard + android + c-test + tous les autres containers actifs
     return allContainers.filter(c => 
-        c.name === 'c-template' || c.name === 'b-template' || c.name === 'wireguard' || c.name === 'android' || (c.name !== 'c-template' && c.name !== 'b-template' && c.name !== 'wireguard' && c.name !== 'android' && c.status === 'Running')
+        c.name === 'c-template' || c.name === 'b-template' || c.name === 'wireguard' || c.name === 'android' || c.name === 'c-test' || (c.name !== 'c-template' && c.name !== 'b-template' && c.name !== 'wireguard' && c.name !== 'android' && c.name !== 'c-test' && c.status === 'Running')
     );
 }
 
@@ -334,11 +334,11 @@ function getContainersToDisplay() {
     }
     
     if (currentMode === 'dev') {
-        // Mode Dev : c-template + b-template + wireguard + android
-        return allContainers.filter(c => c.name === 'c-template' || c.name === 'b-template' || c.name === 'wireguard' || c.name === 'android');
+        // Mode Dev : c-template + b-template + wireguard + android + c-test
+        return allContainers.filter(c => c.name === 'c-template' || c.name === 'b-template' || c.name === 'wireguard' || c.name === 'android' || c.name === 'c-test');
     } else {
-        // Mode All : tous les containers actifs sauf c-template, b-template, wireguard et android
-        return allContainers.filter(c => c.name !== 'c-template' && c.name !== 'b-template' && c.name !== 'wireguard' && c.name !== 'android' && c.status === 'Running');
+        // Mode All : tous les containers actifs sauf c-template, b-template, wireguard, android et c-test
+        return allContainers.filter(c => c.name !== 'c-template' && c.name !== 'b-template' && c.name !== 'wireguard' && c.name !== 'android' && c.name !== 'c-test' && c.status === 'Running');
     }
 }
 
