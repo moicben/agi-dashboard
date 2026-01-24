@@ -9,7 +9,7 @@ const SLOT_MIN_TIME = '00:00:00';
 const SLOT_MAX_TIME = '24:00:00';
 const SLOT_DURATION_MINUTES = 30;
 
-function timeToMinutes(timeStr) {
+function timeToMinutes(timeStr) { 
   // "HH:MM" or "HH:MM:SS"
   const parts = String(timeStr).split(':').map(n => parseInt(n, 10));
   const [h = 0, m = 0] = parts;
