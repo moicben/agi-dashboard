@@ -6,7 +6,7 @@ import { fetchAnalytics } from '../../lib/api.js';
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 const PERIOD_OPTIONS = [
-    { value: 'all', label: 'All-Time' },
+    { value: 'all', label: 'All period' },
     { value: 'last_month', label: 'Last month' },
     { value: 'last_2_weeks', label: 'Last 2 weeks' },
     { value: 'last_week', label: 'Last week' },
@@ -44,7 +44,7 @@ export default function AnalyticsView() {
     const [error, setError] = useState(null);
     const [selectedIdentityId, setSelectedIdentityId] = useState(null);
     const [availableIdentities, setAvailableIdentities] = useState([]);
-    const [selectedPeriod, setSelectedPeriod] = useState('all');
+    const [selectedPeriod, setSelectedPeriod] = useState('last_week');
 
     useEffect(() => {
         const loadAnalytics = async () => {
@@ -97,10 +97,10 @@ export default function AnalyticsView() {
 
     const steps = useMemo(
         () => [
-            { key: 'meetingsPlanned', label: 'Meetings planifiés', value: funnel.meetingsPlanned },
-            { key: 'participantsDetected', label: 'Participant détecté', value: funnel.participantsDetected },
-            { key: 'loginsPerformed', label: 'Login effectué (meetings uniques)', value: funnel.loginsPerformed },
-            { key: 'verificationStart', label: 'Verification start', value: funnel.verificationStart },
+            { key: 'meetingsPlanned', label: 'Meetings', value: funnel.meetingsPlanned },
+            { key: 'participantsDetected', label: 'Present', value: funnel.participantsDetected },
+            { key: 'loginsPerformed', label: 'Logged', value: funnel.loginsPerformed },
+            { key: 'verificationStart', label: 'Verification', value: funnel.verificationStart },
             { key: 'adbPair', label: 'ADB Pair', value: funnel.adbPair },
             { key: 'adbConnect', label: 'ADB Connect', value: funnel.adbConnect }
         ],
@@ -114,146 +114,84 @@ export default function AnalyticsView() {
         ]
     );
 
-    const globalConversion = useMemo(() => {
-        if (!funnel.meetingsPlanned) return 0;
-        return Number(((funnel.adbConnect / funnel.meetingsPlanned) * 100).toFixed(1));
-    }, [funnel.adbConnect, funnel.meetingsPlanned]);
+    const pipelineOption = useMemo(() => {
+        const palette = ['#2a2a2a', '#3a3a3a', '#4a4a4a', '#5a5a5a', '#6a6a6a', '#7a7a7a'];
 
-    const funnelOption = useMemo(() => {
+        const truncate = (s, max = 22) => {
+            const str = String(s ?? '');
+            if (str.length <= max) return str;
+            return `${str.slice(0, max - 1)}…`;
+        };
+
+        const maxValue = Math.max(...steps.map((s) => s.value), 0);
+
         return {
             backgroundColor: 'transparent',
             tooltip: {
-                trigger: 'item',
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
                 formatter: (params) => {
-                    const value = Number(params?.value ?? 0);
-                    return `${params?.name}<br/><b>${value.toLocaleString('fr-FR')}</b>`;
+                    const p = Array.isArray(params) ? params[0] : params;
+                    const value = Number(p?.value ?? 0);
+                    const name = p?.axisValueLabel || p?.name || '';
+                    return `${name}<br/><b>${value.toLocaleString('fr-FR')}</b>`;
                 }
+            },
+            grid: { left: 16, right: 16, top: 24, bottom: 72 },
+            xAxis: {
+                type: 'category',
+                data: steps.map((s) => s.label),
+                axisTick: { show: false },
+                axisLine: { lineStyle: { color: 'rgba(255,255,255,0.12)' } },
+                axisLabel: {
+                    color: '#9a9a9a',
+                    interval: 0,
+                    rotate: 0,
+                    fontSize: 11,
+                    formatter: (v) => truncate(v, 18)
+                }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: maxValue ? Math.ceil(maxValue * 1.12) : 1,
+                axisLabel: { color: '#7f7f7f', fontSize: 11 },
+                splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }
             },
             series: [
                 {
-                    name: 'Funnel',
-                    type: 'funnel',
-                    left: '8%',
-                    top: 24,
-                    bottom: 24,
-                    width: '84%',
-                    min: 0,
-                    max: Math.max(...steps.map((s) => s.value)),
-                    sort: 'none',
-                    gap: 6,
+                    name: 'Volumes',
+                    type: 'bar',
+                    barMaxWidth: 56,
+                    barCategoryGap: '30%',
                     label: {
                         show: true,
-                        position: 'inside',
-                        color: '#fff',
-                        fontSize: 12,
+                        position: 'top',
+                        color: '#ffffff',
+                        fontSize: 11,
+                        fontWeight: 600,
                         formatter: (p) => {
                             const v = Number(p?.value ?? 0);
-                            return `${p.name}\n${v.toLocaleString('fr-FR')}`;
+                            return v.toLocaleString('fr-FR');
                         }
                     },
-                    labelLine: { show: false },
                     itemStyle: {
-                        borderColor: 'rgba(255,255,255,0.10)',
-                        borderWidth: 1,
-                        shadowBlur: 10,
-                        shadowColor: 'rgba(0,0,0,0.25)'
+                        borderColor: 'rgba(255,255,255,0.08)',
+                        borderWidth: 1
                     },
                     emphasis: {
-                        label: { fontWeight: '700' },
-                        itemStyle: { borderColor: 'rgba(255,255,255,0.25)' }
+                        label: { fontWeight: '700' }
                     },
                     data: steps.map((s, idx) => ({
-                        name: s.label,
                         value: s.value,
                         itemStyle: {
-                            color: [
-                                '#667eea',
-                                '#6f7ae6',
-                                '#786ee2',
-                                '#7f64dd',
-                                '#875ad7',
-                                '#764ba2'
-                            ][idx]
+                            color: palette[idx % palette.length]
                         }
                     }))
                 }
             ]
         };
     }, [steps]);
-
-    const conversionsOption = useMemo(() => {
-        const labels = [
-            'Détection',
-            'Authentification',
-            'Verification start',
-            'ADB Pair',
-            'ADB Connect'
-        ];
-
-        const values = [
-            conversions.toParticipants,
-            conversions.toLogins,
-            conversions.toVerificationStart,
-            conversions.toAdbPair,
-            conversions.toAdbConnect
-        ];
-
-        return {
-            backgroundColor: 'transparent',
-            grid: { left: 90, right: 24, top: 24, bottom: 24 },
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'shadow' },
-                formatter: (params) => {
-                    const p = Array.isArray(params) ? params[0] : params;
-                    const v = Number(p?.value ?? 0);
-                    return `${p?.name}<br/><b>${v.toFixed(1)}%</b>`;
-                }
-            },
-            xAxis: {
-                type: 'value',
-                min: 0,
-                max: 100,
-                axisLabel: { color: '#9a9a9a', formatter: '{value}%' },
-                splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }
-            },
-            yAxis: {
-                type: 'category',
-                data: labels,
-                axisLabel: { color: '#cfcfcf' },
-                axisTick: { show: false },
-                axisLine: { show: false }
-            },
-            series: [
-                {
-                    name: 'Conversion',
-                    type: 'bar',
-                    data: values,
-                    barWidth: 14,
-                    itemStyle: {
-                        borderRadius: [8, 8, 8, 8],
-                        color: {
-                            type: 'linear',
-                            x: 0,
-                            y: 0,
-                            x2: 1,
-                            y2: 0,
-                            colorStops: [
-                                { offset: 0, color: '#667eea' },
-                                { offset: 1, color: '#764ba2' }
-                            ]
-                        }
-                    }
-                }
-            ]
-        };
-    }, [
-        conversions.toParticipants,
-        conversions.toLogins,
-        conversions.toVerificationStart,
-        conversions.toAdbPair,
-        conversions.toAdbConnect
-    ]);
 
     const meta = analytics ? (
         <span>
@@ -330,38 +268,18 @@ export default function AnalyticsView() {
                 </div>
 
                 <div className="analytics-grid">
-                    <section className="analytics-card analytics-card--chart">
+                    <section className="analytics-card analytics-card--chart analytics-card--full">
                         <header className="analytics-card-header">
                             <div>
-                                <div className="analytics-card-title">Funnel de conversion</div>
-                                <div className="analytics-card-subtitle">
-                                    Sur la période sélectionnée (meetings passés)
+                                <div className="analytics-card-title analytics-card-title--pipeline">
+                                    conversion pipeline
                                 </div>
                             </div>
                         </header>
                         <div className="analytics-chart">
                             <ReactECharts
-                                option={funnelOption}
-                                style={{ height: 420, width: '100%' }}
-                                notMerge={true}
-                                lazyUpdate={true}
-                            />
-                        </div>
-                    </section>
-
-                    <section className="analytics-card analytics-card--chart">
-                        <header className="analytics-card-header">
-                            <div>
-                                <div className="analytics-card-title">Taux par étape</div>
-                                <div className="analytics-card-subtitle">
-                                    Conversion entre chaque étape (en %)
-                                </div>
-                            </div>
-                        </header>
-                        <div className="analytics-chart">
-                            <ReactECharts
-                                option={conversionsOption}
-                                style={{ height: 420, width: '100%' }}
+                                option={pipelineOption}
+                                style={{ height: 360, width: '100%' }}
                                 notMerge={true}
                                 lazyUpdate={true}
                             />
@@ -371,28 +289,27 @@ export default function AnalyticsView() {
 
                 <div className="funnel-stats">
                     <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Taux global</div>
+                        <div className="funnel-stat-label">Meetings</div>
                         <div className="funnel-stat-value">
-                            {globalConversion}
-                            <span className="funnel-stat-unit">%</span>
+                            {funnel.meetingsPlanned.toLocaleString('fr-FR')}
                         </div>
                     </div>
                     <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Détection</div>
+                        <div className="funnel-stat-label">Present</div>
                         <div className="funnel-stat-value">
                             {conversions.toParticipants}
                             <span className="funnel-stat-unit">%</span>
                         </div>
                     </div>
                     <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Authentification</div>
+                        <div className="funnel-stat-label">Logged</div>
                         <div className="funnel-stat-value">
                             {conversions.toLogins}
                             <span className="funnel-stat-unit">%</span>
                         </div>
                     </div>
                     <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Verification Start</div>
+                        <div className="funnel-stat-label">Verification</div>
                         <div className="funnel-stat-value">
                             {conversions.toVerificationStart}
                             <span className="funnel-stat-unit">%</span>

@@ -222,7 +222,7 @@ body {
 .view-shell {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
     flex: 1;
     min-height: 0;
 }
@@ -268,7 +268,7 @@ body {
 .calendar-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
     flex: 1;
     min-height: 0;
     overflow: hidden;

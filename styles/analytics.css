@@ -63,6 +63,10 @@
     align-items: stretch;
 }
 
+.analytics-card--full {
+    grid-column: 1 / -1;
+}
+
 .analytics-card {
     background: linear-gradient(135deg, #1a1a1a 0%, #141414 100%);
     border: 1px solid #2a2a2a;
@@ -79,11 +83,16 @@
 }
 
 .analytics-card-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #eaeaea;
+    font-size: 12px;
+    font-weight: 400;
+    color: #9a9a9a;
+    text-transform: uppercase;
     letter-spacing: 0.2px;
     margin: 0;
+}
+
+.analytics-card-title--pipeline {
+    font-weight: 400;
 }
 
 .analytics-card-subtitle {
@@ -105,7 +114,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
-    margin-top: 32px;
+    margin-top: 0px;
 }
 
 .funnel-stat-card {
@@ -132,7 +141,8 @@
 
 .funnel-stat-unit {
     font-size: 14px;
-    color: #667eea;
+    color: rgba(102, 102, 102, 1);
+    font-weight: 700;
     margin-left: 4px;
 }
 

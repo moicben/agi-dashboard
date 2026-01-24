@@ -507,7 +507,7 @@ function Calendar({ currentDate, onDateChange }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '12px',
-        marginBottom: '16px',
+        marginBottom: '0px',
         padding: '0',
         flexWrap: 'wrap'
       }}>
