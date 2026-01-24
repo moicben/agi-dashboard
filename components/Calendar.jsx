@@ -484,7 +484,7 @@ function Calendar({ currentDate, onDateChange }) {
             start: null,
             end: null
           };
-        }}
+        }} 
         eventClick={handleEventClick}
         eventContent={(eventInfo) => {
           const { meetingTitle, bookerName, company } = eventInfo.event.extendedProps;
