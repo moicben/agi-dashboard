@@ -459,7 +459,7 @@ export default function AnalyticsView() {
                         <select
                             value={selectedIdentityId || ''}
                             onChange={(e) => setSelectedIdentityId(e.target.value || null)}
-                            className="identity-filter"
+                            className="identity-filter" 
                         >
                             <option value="">All identity</option>
                             {availableIdentities.map((identity) => (
