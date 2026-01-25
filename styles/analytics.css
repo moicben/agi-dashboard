@@ -44,7 +44,7 @@
     border-color: #333;
     background-color: #1a1a1a;
 }
-
+ 
 .period-filter:focus {
     outline: none;
     border-color: #4a9eff !important;
