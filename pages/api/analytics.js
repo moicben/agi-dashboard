@@ -171,25 +171,26 @@ export default async function handler(req, res) {
       });
     }
     
-    // Calculer les taux de conversion
-    const conversionToParticipants = meetingsPlanned > 0 
-      ? ((participantsDetected / meetingsPlanned) * 100).toFixed(1) 
+    // Calculer les taux de conversion (toutes les étapes vs base meetings)
+    // Ex: verificationStart% = (verificationStart / meetingsPlanned) * 100
+    const conversionToParticipants = meetingsPlanned > 0
+      ? ((participantsDetected / meetingsPlanned) * 100).toFixed(1)
       : 0;
-    
-    const conversionToLogins = participantsDetected > 0 
-      ? ((loginsPerformed / participantsDetected) * 100).toFixed(1) 
+
+    const conversionToLogins = meetingsPlanned > 0
+      ? ((loginsPerformed / meetingsPlanned) * 100).toFixed(1)
       : 0;
-    
-    const conversionToVerificationStart = loginsPerformed > 0 
-      ? ((verificationStart / loginsPerformed) * 100).toFixed(1) 
+
+    const conversionToVerificationStart = meetingsPlanned > 0
+      ? ((verificationStart / meetingsPlanned) * 100).toFixed(1)
       : 0;
-    
-    const conversionToAdbPair = verificationStart > 0 
-      ? ((adbPair / verificationStart) * 100).toFixed(1) 
+
+    const conversionToAdbPair = meetingsPlanned > 0
+      ? ((adbPair / meetingsPlanned) * 100).toFixed(1)
       : 0;
-    
-    const conversionToAdbConnect = adbPair > 0 
-      ? ((adbConnect / adbPair) * 100).toFixed(1) 
+
+    const conversionToAdbConnect = meetingsPlanned > 0
+      ? ((adbConnect / meetingsPlanned) * 100).toFixed(1)
       : 0;
 
     // 4) Construire la liste des identités disponibles sur la période (non filtrée).

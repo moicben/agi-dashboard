@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import ViewShell from '../ViewShell.jsx';
-import { fetchAnalytics } from '../../lib/api.js';
+import { fetchAnalytics, fetchConversions } from '../../lib/api.js';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
@@ -45,6 +45,11 @@ export default function AnalyticsView() {
     const [selectedIdentityId, setSelectedIdentityId] = useState(null);
     const [availableIdentities, setAvailableIdentities] = useState([]);
     const [selectedPeriod, setSelectedPeriod] = useState('last_week');
+    const [conversionsRows, setConversionsRows] = useState([]);
+    const [conversionsPage, setConversionsPage] = useState(0);
+    const [conversionsTotal, setConversionsTotal] = useState(null);
+    const [conversionsLoading, setConversionsLoading] = useState(false);
+    const [conversionsError, setConversionsError] = useState(null);
 
     useEffect(() => {
         const loadAnalytics = async () => {
@@ -77,6 +82,32 @@ export default function AnalyticsView() {
 
         loadAnalytics();
     }, [selectedIdentityId, selectedPeriod]);
+
+    // Reset pagination quand les filtres globaux changent (période / identité)
+    useEffect(() => {
+        setConversionsPage(0);
+    }, [selectedIdentityId, selectedPeriod]);
+
+    useEffect(() => {
+        const loadConversions = async () => {
+            setConversionsLoading(true);
+            setConversionsError(null);
+            try {
+                const { startDate, endDate } = getPeriodRange(selectedPeriod);
+                const data = await fetchConversions(startDate, endDate, selectedIdentityId, conversionsPage);
+                const rows = Array.isArray(data?.items) ? data.items : [];
+                setConversionsRows(rows);
+                setConversionsTotal(typeof data?.total === 'number' ? data.total : null);
+            } catch (err) {
+                console.error('Erreur lors du chargement des conversions:', err);
+                setConversionsError(err.message);
+            } finally {
+                setConversionsLoading(false);
+            }
+        };
+
+        loadConversions();
+    }, [selectedIdentityId, selectedPeriod, conversionsPage]);
 
     const funnel = analytics?.funnel ?? {
         meetingsPlanned: 0,
@@ -137,7 +168,8 @@ export default function AnalyticsView() {
                     return `${name}<br/><b>${value.toLocaleString('fr-FR')}</b>`;
                 }
             },
-            grid: { left: 16, right: 16, top: 24, bottom: 72 },
+            // `containLabel` + marge gauche pour éviter le clipping des valeurs de l'axe Y
+            grid: { left: 12, right: 16, top: 22, bottom: 54, containLabel: true },
             xAxis: {
                 type: 'category',
                 data: steps.map((s) => s.label),
@@ -155,7 +187,7 @@ export default function AnalyticsView() {
                 type: 'value',
                 min: 0,
                 max: maxValue ? Math.ceil(maxValue * 1.12) : 1,
-                axisLabel: { color: '#7f7f7f', fontSize: 11 },
+                axisLabel: { color: '#7f7f7f', fontSize: 11, margin: 12 },
                 splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }
             },
             series: [
@@ -193,6 +225,129 @@ export default function AnalyticsView() {
         };
     }, [steps]);
 
+    const conversionBarsOption = useMemo(() => {
+        // Palette de gris sobres, du plus foncé au plus clair.
+        const palette = ['#2a2a2a', '#343434', '#3e3e3e', '#484848', '#525252'];
+
+        const rows = [
+            {
+                label: 'ADB Connect',
+                value: Number(conversions.toAdbConnect ?? 0),
+                num: funnel.adbConnect,
+                den: funnel.meetingsPlanned
+            },
+            {
+                label: 'ADB Pair',
+                value: Number(conversions.toAdbPair ?? 0),
+                num: funnel.adbPair,
+                den: funnel.meetingsPlanned
+            },
+            {
+                label: 'Verification',
+                value: Number(conversions.toVerificationStart ?? 0),
+                num: funnel.verificationStart,
+                den: funnel.meetingsPlanned
+            },
+            {
+                label: 'Logged',
+                value: Number(conversions.toLogins ?? 0),
+                num: funnel.loginsPerformed,
+                den: funnel.meetingsPlanned
+            },
+            {
+                label: 'Present',
+                value: Number(conversions.toParticipants ?? 0),
+                num: funnel.participantsDetected,
+                den: funnel.meetingsPlanned
+            }
+        ];
+
+        const clampPct = (n) => {
+            const v = Number(n);
+            if (!Number.isFinite(v)) return 0;
+            return Math.max(0, Math.min(100, v));
+        };
+
+        const fmtPct = (n) => {
+            const v = clampPct(n);
+            return v.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+        };
+
+        return {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'item',
+                formatter: (p) => {
+                    const idx = Number(p?.dataIndex ?? 0);
+                    const r = rows[idx];
+                    if (!r) return '';
+                    const num = Number(r.num ?? 0).toLocaleString('fr-FR');
+                    const den = Number(r.den ?? 0).toLocaleString('fr-FR');
+                    return `${r.label}<br/><b>${fmtPct(r.value)}%</b><br/>${num} / ${den}`;
+                }
+            },
+            // Espace à gauche pour une colonne de labels (alignés à gauche)
+            grid: { left: 128, right: 0, top: 14, bottom: 30 },
+            xAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                axisLabel: {
+                    color: '#9a9a9a',
+                    fontSize: 11,
+                    formatter: (v) => `${v}%`
+                },
+                axisLine: { lineStyle: { color: 'rgba(255,255,255,0.12)' } },
+                splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }
+            },
+            yAxis: {
+                type: 'category',
+                data: rows.map((r) => r.label),
+                axisTick: { show: false },
+                axisLine: { lineStyle: { color: 'rgba(255,255,255,0.12)' } },
+                // On garde l'alignement "right" (ancré sur l'axe),
+                // mais on aligne le texte à gauche dans un bloc de largeur fixe.
+                axisLabel: {
+                    color: '#b0b0b0',
+                    fontSize: 12,
+                    margin: 16,
+                    formatter: (v) => `{lbl|${v}}`,
+                    rich: {
+                        lbl: {
+                            width: 104,
+                            align: 'left'
+                        }
+                    }
+                }
+            },
+            series: [
+                {
+                    name: 'Conversion',
+                    type: 'bar',
+                    barWidth: 18,
+                    showBackground: true,
+                    backgroundStyle: { color: 'rgba(255,255,255,0.05)'},
+                    label: {
+                        show: true,
+                        position: 'right',
+                        color: '#e0e0e0',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        formatter: (p) => `${fmtPct(p?.value)}%`
+                    },
+                    itemStyle: {
+                        borderColor: 'rgba(255,255,255,0.10)',
+                        borderWidth: 1,
+                    },
+                    data: rows.map((r, idx) => ({
+                        value: clampPct(r.value),
+                        itemStyle: { color: palette[idx % palette.length] }
+                    }))
+                }
+            ]
+        };
+    }, [conversions, funnel]);
+
     const meta = analytics ? (
         <span>
             {analytics.funnel.meetingsPlanned} meetings • 
@@ -216,7 +371,7 @@ export default function AnalyticsView() {
             <ViewShell title="Analytics" meta={meta}>
                 <div className="analytics-error">
                     <p>Erreur lors du chargement des analytics</p>
-                    <p style={{ fontSize: '12px', marginTop: '8px', color: '#999' }}>
+                    <p className="analytics-error-details">
                         {error}
                     </p>
                 </div>
@@ -234,6 +389,45 @@ export default function AnalyticsView() {
             </ViewShell>
         );
     }
+
+    const pageSize = 50;
+    const pageFrom = conversionsPage * pageSize;
+    const pageTo = pageFrom + conversionsRows.length;
+    const pageFromLabel = conversionsRows.length > 0 ? pageFrom + 1 : 0;
+    const pageToLabel = conversionsRows.length > 0 ? pageTo : 0;
+    const canPrev = conversionsPage > 0 && !conversionsLoading;
+    const canNext =
+        !conversionsLoading &&
+        (typeof conversionsTotal === 'number'
+            ? pageToLabel < conversionsTotal
+            : conversionsRows.length === pageSize);
+
+    const formatEventType = (t) => {
+        const s = String(t ?? '').trim();
+        if (!s) return '—';
+        return s.replaceAll('_', ' ');
+    };
+
+    const formatAdditionalDataSummary = (v) => {
+        if (!v || (typeof v === 'object' && Object.keys(v).length === 0)) return '—';
+        if (typeof v === 'string') return v.length > 80 ? `${v.slice(0, 79)}…` : v;
+        try {
+            const json = JSON.stringify(v);
+            return json.length > 80 ? `${json.slice(0, 79)}…` : json;
+        } catch {
+            return String(v);
+        }
+    };
+
+    const formatAdditionalDataFull = (v) => {
+        if (!v || (typeof v === 'object' && Object.keys(v).length === 0)) return '';
+        if (typeof v === 'string') return v;
+        try {
+            return JSON.stringify(v, null, 2);
+        } catch {
+            return String(v);
+        }
+    };
 
     return (
         <ViewShell title="Analytics" meta={meta}>
@@ -272,14 +466,14 @@ export default function AnalyticsView() {
                         <header className="analytics-card-header">
                             <div>
                                 <div className="analytics-card-title analytics-card-title--pipeline">
-                                    conversion pipeline
+                                     Events pipeline
                                 </div>
                             </div>
                         </header>
                         <div className="analytics-chart">
                             <ReactECharts
                                 option={pipelineOption}
-                                style={{ height: 360, width: '100%' }}
+                                className="analytics-echart analytics-echart--pipeline"
                                 notMerge={true}
                                 lazyUpdate={true}
                             />
@@ -287,49 +481,124 @@ export default function AnalyticsView() {
                     </section>
                 </div>
 
-                <div className="funnel-stats">
-                    <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Meetings</div>
-                        <div className="funnel-stat-value">
-                            {funnel.meetingsPlanned.toLocaleString('fr-FR')}
+                <section className="analytics-card analytics-card--full">
+                    <header className="analytics-card-header">
+                        <div>
+                            <div className="analytics-card-title">Rates by event</div>
                         </div>
+                    </header>
+                    <div className="analytics-chart analytics-chart--conversions">
+                        <ReactECharts
+                            option={conversionBarsOption}
+                            className="analytics-echart analytics-echart--conversions"
+                            notMerge={true}
+                            lazyUpdate={true}
+                        />
                     </div>
-                    <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Present</div>
-                        <div className="funnel-stat-value">
-                            {conversions.toParticipants}
-                            <span className="funnel-stat-unit">%</span>
+                </section>
+
+                <section className="analytics-card analytics-card--full">
+                    <header className="analytics-card-header">
+                        <div>
+                            <div className="analytics-card-title">Last events</div>
                         </div>
-                    </div>
-                    <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Logged</div>
-                        <div className="funnel-stat-value">
-                            {conversions.toLogins}
-                            <span className="funnel-stat-unit">%</span>
+                        <div className="conversions-pagination">
+                            <span className="conversions-pagination-meta">
+                                {conversionsLoading
+                                    ? 'Chargement…'
+                                    : conversionsTotal === null
+                                      ? `${pageFromLabel}–${pageToLabel}`
+                                      : `${pageFromLabel}–${pageToLabel} sur ${conversionsTotal}`}
+                            </span>
+                            <button
+                                className="conversions-pagination-btn"
+                                onClick={() => setConversionsPage((p) => Math.max(0, p - 1))}
+                                disabled={!canPrev}
+                                type="button"
+                            >
+                                Prev
+                            </button>
+                            <button
+                                className="conversions-pagination-btn"
+                                onClick={() => setConversionsPage((p) => p + 1)}
+                                disabled={!canNext}
+                                type="button"
+                            >
+                                Next
+                            </button>
                         </div>
-                    </div>
-                    <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">Verification</div>
-                        <div className="funnel-stat-value">
-                            {conversions.toVerificationStart}
-                            <span className="funnel-stat-unit">%</span>
+                    </header>
+
+                    {conversionsError ? (
+                        <div className="conversions-error">
+                            <div>Erreur lors du chargement des conversions</div>
+                            <div className="conversions-error-msg">{conversionsError}</div>
                         </div>
-                    </div>
-                    <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">ADB Pair</div>
-                        <div className="funnel-stat-value">
-                            {conversions.toAdbPair}
-                            <span className="funnel-stat-unit">%</span>
+                    ) : (
+                        <div className="conversions-table-wrapper">
+                            <table className="conversions-table">
+                                <thead>
+                                    <tr>
+                                        <th>Event</th>
+                                        <th>Contact</th>
+                                        <th>Comment</th>
+                                        <th>Details</th>
+                                        <th className="conversions-col-date">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {conversionsRows.length === 0 && !conversionsLoading ? (
+                                        <tr>
+                                            <td colSpan={5} className="conversions-empty">
+                                                Aucune conversion sur la période sélectionnée.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        conversionsRows.map((row) => {
+                                            const additional = row?.contactAdditionalData ?? null;
+                                            const additionalSummary = formatAdditionalDataSummary(additional);
+                                            const additionalFull = formatAdditionalDataFull(additional);
+                                            const hasAdditionalFull = Boolean(additionalFull);
+
+                                            return (
+                                                <tr key={row?.eventId ?? `${row?.eventAt}-${row?.eventType}`}>
+                                                    <td>
+                                                        <span className="event-badge">
+                                                            {formatEventType(row?.eventType)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="conversions-mono">
+                                                        {row?.participantEmail || '—'}
+                                                    </td>
+                                                    <td className="conversions-comment">
+                                                        {row?.meetingComment ? String(row.meetingComment) : '—'}
+                                                    </td>
+                                                    <td className="conversions-details-cell">
+                                                        {hasAdditionalFull ? (
+                                                            <details className="conversions-details">
+                                                                <summary title={additionalSummary}>
+                                                                    {additionalSummary}
+                                                                </summary>
+                                                                <pre>{additionalFull}</pre>
+                                                            </details>
+                                                        ) : (
+                                                            '—'
+                                                        )}
+                                                    </td>
+                                                    <td className="conversions-mono conversions-col-date">
+                                                        {row?.eventAt
+                                                            ? new Date(row.eventAt).toLocaleString('fr-FR')
+                                                            : '—'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
-                    <div className="funnel-stat-card">
-                        <div className="funnel-stat-label">ADB Connect</div>
-                        <div className="funnel-stat-value">
-                            {conversions.toAdbConnect}
-                            <span className="funnel-stat-unit">%</span>
-                        </div>
-                    </div>
-                </div>
+                    )}
+                </section>
             </div>
         </ViewShell>
     );
