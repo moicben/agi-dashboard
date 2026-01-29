@@ -202,7 +202,7 @@ export default function ContainersView() {
 
     return (
         <ViewShell title="Containers" meta={headerMeta} filters={filtersBar}>
-            <div className="grid">
+            <div className={`grid${containersToDisplay.length === 1 ? ' grid-single' : ''}`}>
                 {containersToPreload.length === 0 ? (
                     <div className="empty-state">
                         <h2>Aucun container</h2>
