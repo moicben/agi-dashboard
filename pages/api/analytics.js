@@ -1,39 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-async function countUniqueMeetingsForEventType({ supabase, eventType, meetingIds }) {
-  if (!meetingIds || meetingIds.length === 0) return 0;
+const FUNNEL_EVENTS = ['visit', 'login', 'adb_pair', 'adb_connect'];
 
-  // Supabase/PostgREST limite la taille des pages de résultats.
-  // On paginate et on déduplique côté serveur pour obtenir un compte exact.
-  const uniqueMeetingIds = new Set();
-  const pageSize = 1000;
-  let from = 0;
+async function countBookings({ supabase, startDate, endDate }) {
+  // "Bookings" = contacts dont status = 'booked' sur la période (basé sur contacts.created_at)
+  // NB: on se base sur updated_at pour dater le passage en "booked".
+  let query = supabase
+    .from('contacts')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'booked');
 
-  while (true) {
-    const to = from + pageSize - 1;
-    const { data, error } = await supabase
-      .from('events')
-      .select('meeting_id')
-      .eq('event_type', eventType)
-      .in('meeting_id', meetingIds)
-      .range(from, to);
-
-    if (error) throw error;
-
-    for (const row of data || []) {
-      if (row?.meeting_id !== null && row?.meeting_id !== undefined) {
-        uniqueMeetingIds.add(row.meeting_id);
-      }
-    }
-
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
+  if (startDate && endDate) {
+    query = query.gte('updated_at', startDate.toISOString()).lte('updated_at', endDate.toISOString());
   }
 
-  return uniqueMeetingIds.size;
+  const { error, count } = await query;
+  if (error) throw error;
+  return typeof count === 'number' ? count : 0;
 }
 
-async function fetchPastMeetingsPaginated({ supabase, nowIso, startDate, endDate, identityId }) {
+async function fetchEventsPaginated({ supabase, startDate, endDate }) {
   const pageSize = 1000;
   let from = 0;
   const rows = [];
@@ -42,20 +28,15 @@ async function fetchPastMeetingsPaginated({ supabase, nowIso, startDate, endDate
     const to = from + pageSize - 1;
 
     let query = supabase
-      .from('meetings')
-      .select('id, internal_id, meeting_start_at, status, identity_id')
-      .lt('meeting_start_at', nowIso)
-      .order('meeting_start_at', { ascending: true })
+      .from('events')
+      .select('contact_id, event_type, created_at')
+      .in('event_type', FUNNEL_EVENTS)
+      .not('contact_id', 'is', null)
+      .order('created_at', { ascending: true })
       .range(from, to);
 
     if (startDate && endDate) {
-      query = query
-        .gte('meeting_start_at', startDate.toISOString())
-        .lte('meeting_start_at', endDate.toISOString());
-    }
-
-    if (identityId) {
-      query = query.eq('identity_id', identityId);
+      query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
     }
 
     const { data, error } = await query;
@@ -92,159 +73,82 @@ export default async function handler(req, res) {
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    const now = new Date();
-    const nowIso = now.toISOString();
-    
-    // Récupérer tous les meetings passés (ou filtrés par date si fourni)
     let startDate = null;
     let endDate = null;
-    const identityIdRaw = req.query.identityId;
-    const identityId = identityIdRaw ? String(identityIdRaw) : null;
     
     if (req.query.start && req.query.end) {
       startDate = new Date(req.query.start);
       endDate = new Date(req.query.end);
-      endDate.setHours(23, 59, 59, 999);
     }
-    
-    // 1) Charger les meetings passés (paginés) pour construire la liste d'identités sur la période.
-    const meetingsAll = await fetchPastMeetingsPaginated({
-      supabase,
-      nowIso,
-      startDate,
-      endDate,
-      identityId: null
-    });
 
-    // 2) Charger les meetings passés (paginés) filtrés par identité (si fournie) pour le funnel.
-    const meetingsFiltered = await fetchPastMeetingsPaginated({
-      supabase,
-      nowIso,
-      startDate,
-      endDate,
-      identityId
-    });
+    // On calcule un funnel "par contact" (contacts uniques) sur la période.
+    // Pipeline imposé: bookings -> visit -> login -> adb_pair -> adb_connect
+    const events = await fetchEventsPaginated({ supabase, startDate, endDate });
 
-    const meetingsPlanned = meetingsFiltered.length;
-    
-    // 2. Compter les participants détectés (meetings passés où le status indique une présence)
-    // NOTE: on exclut explicitement "booked" (ex: meeting planifié mais non réellement "présent").
-    const pastMeetings = (meetingsFiltered || []).filter((meeting) => {
-      return meeting.status !== 'no_participant_detected' && meeting.status !== 'booked';
-    });
-    
-    const participantsDetected = pastMeetings.length;
-    
-    // 3. Récupérer les internal_id des meetings passés pour chercher les événements
-    const internalIds = pastMeetings
-      .map(meeting => meeting.internal_id)
-      .filter(id => id !== null && id !== undefined);
-    
-    let loginsPerformed = 0;
-    let verificationStart = 0;
+    // contact_id -> Set(event_type)
+    const contactEventTypes = new Map();
+    for (const ev of events || []) {
+      const cid = ev?.contact_id;
+      const t = ev?.event_type;
+      if (!cid || !t) continue;
+      let set = contactEventTypes.get(cid);
+      if (!set) {
+        set = new Set();
+        contactEventTypes.set(cid, set);
+      }
+      set.add(t);
+    }
+
+    const bookings = await countBookings({ supabase, startDate, endDate });
+
+    let visit = 0;
+    let login = 0;
     let adbPair = 0;
     let adbConnect = 0;
-    
-    if (internalIds.length > 0) {
-      // IMPORTANT: on compte des meetings uniques par étape (pas le nombre de lignes "events").
-      loginsPerformed = await countUniqueMeetingsForEventType({
-        supabase,
-        eventType: 'login',
-        meetingIds: internalIds
-      });
 
-      verificationStart = await countUniqueMeetingsForEventType({
-        supabase,
-        eventType: 'verification_start',
-        meetingIds: internalIds
-      });
+    for (const types of contactEventTypes.values()) {
+      // On "reconstruit" un funnel monotone même si les events visit ne sont pas backfill.
+      // Visit = a eu un event du funnel (visit OU étapes suivantes)
+      // Login = a eu login OU étapes suivantes, etc.
+      const reachedVisit = types.size > 0;
+      const reachedLogin = types.has('login') || types.has('adb_pair') || types.has('adb_connect');
+      const reachedAdbPair = types.has('adb_pair') || types.has('adb_connect');
+      const reachedAdbConnect = types.has('adb_connect');
 
-      adbPair = await countUniqueMeetingsForEventType({
-        supabase,
-        eventType: 'adb_pair',
-        meetingIds: internalIds
-      });
-
-      adbConnect = await countUniqueMeetingsForEventType({
-        supabase,
-        eventType: 'adb_connect',
-        meetingIds: internalIds
-      });
+      if (reachedVisit) visit += 1;
+      if (reachedLogin) login += 1;
+      if (reachedAdbPair) adbPair += 1;
+      if (reachedAdbConnect) adbConnect += 1;
     }
-    
-    // Calculer les taux de conversion (toutes les étapes vs base meetings)
-    // Ex: verificationStart% = (verificationStart / meetingsPlanned) * 100
-    const conversionToParticipants = meetingsPlanned > 0
-      ? ((participantsDetected / meetingsPlanned) * 100).toFixed(1)
-      : 0;
 
-    const conversionToLogins = meetingsPlanned > 0
-      ? ((loginsPerformed / meetingsPlanned) * 100).toFixed(1)
-      : 0;
-
-    const conversionToVerificationStart = meetingsPlanned > 0
-      ? ((verificationStart / meetingsPlanned) * 100).toFixed(1)
-      : 0;
-
-    const conversionToAdbPair = meetingsPlanned > 0
-      ? ((adbPair / meetingsPlanned) * 100).toFixed(1)
-      : 0;
-
-    const conversionToAdbConnect = meetingsPlanned > 0
-      ? ((adbConnect / meetingsPlanned) * 100).toFixed(1)
-      : 0;
-
-    // 4) Construire la liste des identités disponibles sur la période (non filtrée).
-    const identityIds = [
-      ...new Set((meetingsAll || []).map(m => m.identity_id).filter(Boolean))
-    ];
-
-    let availableIdentities = [];
-    if (identityIds.length > 0) {
-      const { data: identities, error: identitiesError } = await supabase
-        .from('identities')
-        .select('id, fullname, company, email')
-        .in('id', identityIds);
-
-      if (identitiesError) {
-        console.error('Erreur lors de la récupération des identités:', identitiesError);
-      } else {
-        availableIdentities = (identities || [])
-          .filter(i => i && i.id)
-          .sort((a, b) => {
-            const nameA = String(a.fullname || '').toLowerCase();
-            const nameB = String(b.fullname || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-          });
-      }
-    }
+    const pct = (num, den) => {
+      if (!den || den <= 0) return 0;
+      return Number(((Number(num) / Number(den)) * 100).toFixed(1));
+    };
     
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json({
       funnel: {
-        meetingsPlanned,
-        participantsDetected,
-        loginsPerformed,
-        verificationStart,
+        bookings,
+        visit,
+        login,
         adbPair,
         adbConnect
       },
       conversions: {
-        toParticipants: parseFloat(conversionToParticipants),
-        toLogins: parseFloat(conversionToLogins),
-        toVerificationStart: parseFloat(conversionToVerificationStart),
-        toAdbPair: parseFloat(conversionToAdbPair),
-        toAdbConnect: parseFloat(conversionToAdbConnect)
+        toVisit: pct(visit, bookings),
+        toLogin: pct(login, bookings),
+        toAdbPair: pct(adbPair, bookings),
+        toAdbConnect: pct(adbConnect, bookings)
       },
-      availableIdentities,
+      // Gardé pour compat UI, mais la DB simplifiée ne relie plus les events à une "identity".
+      availableIdentities: [],
       period: {
         start: startDate ? startDate.toISOString() : null,
         end: endDate ? endDate.toISOString() : null
       },
-      filters: {
-        identityId
-      }
+      filters: {}
     });
     
   } catch (error) {

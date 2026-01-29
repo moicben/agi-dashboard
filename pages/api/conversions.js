@@ -28,9 +28,6 @@ export default async function handler(req, res) {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const identityIdRaw = req.query.identityId;
-    const identityId = identityIdRaw ? String(identityIdRaw) : null;
-
     const page = getSafePage(req.query.page);
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
@@ -40,12 +37,25 @@ export default async function handler(req, res) {
     if (req.query.start && req.query.end) {
       startDate = new Date(req.query.start);
       endDate = new Date(req.query.end);
-      endDate.setHours(23, 59, 59, 999);
     }
 
-    // NB: relations PostgREST basées sur les FKs:
-    // - events.meeting_id -> meetings.internal_id (events_meeting_id_fkey)
-    // - meetings.contact_id -> contacts.id (meetings_contact_id_fkey)
+    const redactObject = (value) => {
+      if (!value || typeof value !== 'object') return value;
+      const redactKey = (k) => /password|pass|otp|token|secret|api[_-]?key|code|key/i.test(String(k));
+      const walk = (v) => {
+        if (Array.isArray(v)) return v.map(walk);
+        if (v && typeof v === 'object') {
+          const out = {};
+          for (const [k, vv] of Object.entries(v)) {
+            out[k] = redactKey(k) ? '[REDACTED]' : walk(vv);
+          }
+          return out;
+        }
+        return v;
+      };
+      return walk(value);
+    };
+
     let query = supabase
       .from('events')
       .select(
@@ -53,16 +63,12 @@ export default async function handler(req, res) {
           id,
           created_at,
           event_type,
-          meeting_id,
-          meetings:meetings!events_meeting_id_fkey!inner (
-            participant_email,
-            status,
-            comment,
-            identity_id,
-            contact_id,
-            contacts:contacts!meetings_contact_id_fkey (
-              additional_data
-            )
+          ip,
+          details,
+          contact_id,
+          contacts:contacts!events_contact_id_fkey (
+            source_query,
+            additional_data
           )
         `,
         { count: 'exact' }
@@ -74,26 +80,20 @@ export default async function handler(req, res) {
       query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
     }
 
-    // Filtrage identité (utilise la colonne de la table jointe)
-    if (identityId) {
-      query = query.eq('meetings.identity_id', identityId);
-    }
-
     const { data, error, count } = await query;
     if (error) throw error;
 
     const items = (data || []).map((row) => {
-      const meeting = row?.meetings || null;
-      const contact = meeting?.contacts || null;
+      const contact = row?.contacts || null;
       return {
         eventId: row?.id ?? null,
         eventAt: row?.created_at ?? null,
         eventType: row?.event_type ?? null,
-        meetingId: row?.meeting_id ?? null,
-        participantEmail: meeting?.participant_email ?? null,
-        meetingStatus: meeting?.status ?? null,
-        meetingComment: meeting?.comment ?? null,
-        contactAdditionalData: contact?.additional_data ?? null
+        ip: row?.ip ?? null,
+        contactId: row?.contact_id ?? null,
+        sourceQuery: contact?.source_query ?? null,
+        contactAdditionalData: redactObject(contact?.additional_data ?? null),
+        eventDetails: redactObject(row?.details ?? null)
       };
     });
 
@@ -105,7 +105,6 @@ export default async function handler(req, res) {
       pageSize: PAGE_SIZE,
       total: typeof count === 'number' ? count : null,
       filters: {
-        identityId,
         start: startDate ? startDate.toISOString() : null,
         end: endDate ? endDate.toISOString() : null
       }

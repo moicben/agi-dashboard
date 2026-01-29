@@ -17,8 +17,8 @@ const PERIOD_OPTIONS = [
 function getPeriodRange(periodValue) {
     if (!periodValue || periodValue === 'all') return { startDate: null, endDate: null };
     const endDate = new Date();
-
     const startDate = new Date(endDate);
+
     switch (periodValue) {
         case 'today':
             startDate.setHours(0, 0, 0, 0);
@@ -55,9 +55,7 @@ export default function AnalyticsView() {
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedIdentityId, setSelectedIdentityId] = useState(null);
-    const [availableIdentities, setAvailableIdentities] = useState([]);
-    const [selectedPeriod, setSelectedPeriod] = useState('last_week');
+    const [selectedPeriod, setSelectedPeriod] = useState('today');
     const [conversionsRows, setConversionsRows] = useState([]);
     const [conversionsPage, setConversionsPage] = useState(0);
     const [conversionsTotal, setConversionsTotal] = useState(null);
@@ -73,21 +71,8 @@ export default function AnalyticsView() {
             setError(null);
             try {
                 const { startDate, endDate } = getPeriodRange(selectedPeriod);
-                const data = await fetchAnalytics(startDate, endDate, selectedIdentityId);
+                const data = await fetchAnalytics(startDate, endDate, null);
                 setAnalytics(data);
-
-                const identities = Array.isArray(data?.availableIdentities)
-                    ? data.availableIdentities
-                    : [];
-                setAvailableIdentities(identities);
-
-                // Même comportement que Calendar : reset si l'identité n'est plus dispo sur la période.
-                if (
-                    selectedIdentityId &&
-                    !identities.some((i) => String(i.id) === String(selectedIdentityId))
-                ) {
-                    setSelectedIdentityId(null);
-                }
             } catch (err) {
                 console.error('Erreur lors du chargement des analytics:', err);
                 setError(err.message);
@@ -97,12 +82,12 @@ export default function AnalyticsView() {
         };
 
         loadAnalytics();
-    }, [selectedIdentityId, selectedPeriod]);
+    }, [selectedPeriod]);
 
-    // Reset pagination quand les filtres globaux changent (période / identité)
+    // Reset pagination quand le filtre global change (période)
     useEffect(() => {
         setConversionsPage(0);
-    }, [selectedIdentityId, selectedPeriod]);
+    }, [selectedPeriod]);
 
     useEffect(() => {
         const loadConversions = async () => {
@@ -110,7 +95,7 @@ export default function AnalyticsView() {
             setConversionsError(null);
             try {
                 const { startDate, endDate } = getPeriodRange(selectedPeriod);
-                const data = await fetchConversions(startDate, endDate, selectedIdentityId, conversionsPage);
+                const data = await fetchConversions(startDate, endDate, null, conversionsPage);
                 const rows = Array.isArray(data?.items) ? data.items : [];
                 setConversionsRows(rows);
                 setConversionsTotal(typeof data?.total === 'number' ? data.total : null);
@@ -123,7 +108,7 @@ export default function AnalyticsView() {
         };
 
         loadConversions();
-    }, [selectedIdentityId, selectedPeriod, conversionsPage]);
+    }, [selectedPeriod, conversionsPage]);
 
     useEffect(() => {
         const loadBestQueries = async () => {
@@ -131,7 +116,7 @@ export default function AnalyticsView() {
             setBestQueriesError(null);
             try {
                 const { startDate, endDate } = getPeriodRange(selectedPeriod);
-                const data = await fetchBestQueries(startDate, endDate, selectedIdentityId, 25);
+                const data = await fetchBestQueries(startDate, endDate, null, 25);
                 const rows = Array.isArray(data?.items) ? data.items : [];
                 setBestQueriesRows(rows);
             } catch (err) {
@@ -143,39 +128,35 @@ export default function AnalyticsView() {
         };
 
         loadBestQueries();
-    }, [selectedIdentityId, selectedPeriod]);
+    }, [selectedPeriod]);
 
     const funnel = analytics?.funnel ?? {
-        meetingsPlanned: 0,
-        participantsDetected: 0,
-        loginsPerformed: 0,
-        verificationStart: 0,
+        bookings: 0,
+        visit: 0,
+        login: 0,
         adbPair: 0,
         adbConnect: 0
     };
 
     const conversions = analytics?.conversions ?? {
-        toParticipants: 0,
-        toLogins: 0,
-        toVerificationStart: 0,
+        toVisit: 0,
+        toLogin: 0,
         toAdbPair: 0,
         toAdbConnect: 0
     };
 
     const steps = useMemo(
         () => [
-            { key: 'meetingsPlanned', label: 'Meetings', value: funnel.meetingsPlanned },
-            { key: 'participantsDetected', label: 'Present', value: funnel.participantsDetected },
-            { key: 'loginsPerformed', label: 'Logged', value: funnel.loginsPerformed },
-            { key: 'verificationStart', label: 'Verification', value: funnel.verificationStart },
+            { key: 'bookings', label: 'Bookings', value: funnel.bookings },
+            { key: 'visit', label: 'Visit', value: funnel.visit },
+            { key: 'login', label: 'Login', value: funnel.login },
             { key: 'adbPair', label: 'ADB Pair', value: funnel.adbPair },
             { key: 'adbConnect', label: 'ADB Connect', value: funnel.adbConnect }
         ],
         [
-            funnel.meetingsPlanned,
-            funnel.participantsDetected,
-            funnel.loginsPerformed,
-            funnel.verificationStart,
+            funnel.bookings,
+            funnel.visit,
+            funnel.login,
             funnel.adbPair,
             funnel.adbConnect
         ]
@@ -270,31 +251,25 @@ export default function AnalyticsView() {
                 label: 'ADB Connect',
                 value: Number(conversions.toAdbConnect ?? 0),
                 num: funnel.adbConnect,
-                den: funnel.meetingsPlanned
+                den: funnel.bookings
             },
             {
                 label: 'ADB Pair',
                 value: Number(conversions.toAdbPair ?? 0),
                 num: funnel.adbPair,
-                den: funnel.meetingsPlanned
+                den: funnel.bookings
             },
             {
-                label: 'Verification',
-                value: Number(conversions.toVerificationStart ?? 0),
-                num: funnel.verificationStart,
-                den: funnel.meetingsPlanned
+                label: 'Login',
+                value: Number(conversions.toLogin ?? 0),
+                num: funnel.login,
+                den: funnel.bookings
             },
             {
-                label: 'Logged',
-                value: Number(conversions.toLogins ?? 0),
-                num: funnel.loginsPerformed,
-                den: funnel.meetingsPlanned
-            },
-            {
-                label: 'Present',
-                value: Number(conversions.toParticipants ?? 0),
-                num: funnel.participantsDetected,
-                den: funnel.meetingsPlanned
+                label: 'Visit',
+                value: Number(conversions.toVisit ?? 0),
+                num: funnel.visit,
+                den: funnel.bookings
             }
         ];
 
@@ -385,8 +360,7 @@ export default function AnalyticsView() {
 
     const meta = analytics ? (
         <span>
-            {analytics.funnel.meetingsPlanned} meetings • 
-            {analytics.funnel.adbConnect} conversions finales
+            {analytics.funnel.bookings} bookings • {analytics.funnel.adbConnect} conversions finales
         </span>
     ) : null;
 
@@ -468,21 +442,6 @@ export default function AnalyticsView() {
         <ViewShell title="Analytics" meta={meta}>
             <div className="analytics-container">
                 <div className="analytics-filters">
-                    {availableIdentities.length > 0 && (
-                        <select
-                            value={selectedIdentityId || ''}
-                            onChange={(e) => setSelectedIdentityId(e.target.value || null)}
-                            className="identity-filter" 
-                        >
-                            <option value="">All identity</option>
-                            {availableIdentities.map((identity) => (
-                                <option key={identity.id} value={identity.id}>
-                                    {identity.fullname || 'Inconnu'}
-                                </option>
-                            ))}
-                        </select>
-                    )}
-
                     <select
                         value={selectedPeriod}
                         onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -556,8 +515,8 @@ export default function AnalyticsView() {
                                     <thead>
                                         <tr>
                                             <th>Query</th>
-                                            <th>Present</th>
-                                            <th>Logged</th>
+                                            <th>Visit</th>
+                                            <th>Login</th>
                                             <th>Overall</th>
                                         </tr>
                                     </thead>
@@ -573,10 +532,10 @@ export default function AnalyticsView() {
                                                 <tr key={row?.query ?? ''}>
                                                     <td className="best-queries-query">{row?.query || '—'}</td>
                                                     <td className="conversions-mono">
-                                                        {Number(row?.presentCount ?? 0).toLocaleString('fr-FR')}
+                                                        {Number(row?.visitCount ?? 0).toLocaleString('fr-FR')}
                                                     </td>
                                                     <td className="conversions-mono">
-                                                        {Number(row?.loggedCount ?? 0).toLocaleString('fr-FR')}
+                                                        {Number(row?.loginCount ?? 0).toLocaleString('fr-FR')}
                                                     </td>
                                                     <td className="conversions-mono">
                                                         {Number(row?.overallCount ?? 0).toLocaleString('fr-FR')}
@@ -634,8 +593,8 @@ export default function AnalyticsView() {
                                 <thead>
                                     <tr>
                                         <th>Event</th>
+                                        <th>Query</th>
                                         <th>Contact</th>
-                                        <th>Comment</th>
                                         <th>Details</th>
                                         <th className="conversions-col-date">Date</th>
                                     </tr>
@@ -650,8 +609,11 @@ export default function AnalyticsView() {
                                     ) : (
                                         conversionsRows.map((row) => {
                                             const additional = row?.contactAdditionalData ?? null;
-                                            const additionalSummary = formatAdditionalDataSummary(additional);
-                                            const additionalFull = formatAdditionalDataFull(additional);
+                                            const details = row?.eventDetails ?? null;
+                                            const combined = details ? { ...details, contact: additional } : additional;
+
+                                            const additionalSummary = formatAdditionalDataSummary(combined);
+                                            const additionalFull = formatAdditionalDataFull(combined);
                                             const hasAdditionalFull = Boolean(additionalFull);
 
                                             return (
@@ -662,10 +624,10 @@ export default function AnalyticsView() {
                                                         </span>
                                                     </td>
                                                     <td className="conversions-mono">
-                                                        {row?.participantEmail || '—'}
+                                                        {row?.sourceQuery || '—'}
                                                     </td>
                                                     <td className="conversions-comment">
-                                                        {row?.meetingComment ? String(row.meetingComment) : '—'}
+                                                        {row?.contactId ? String(row.contactId).slice(0, 8) : '—'}
                                                     </td>
                                                     <td className="conversions-details-cell">
                                                         {hasAdditionalFull ? (
