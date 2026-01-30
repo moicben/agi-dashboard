@@ -515,9 +515,9 @@ export default function AnalyticsView() {
                                     <thead>
                                         <tr>
                                             <th>Query</th>
-                                            <th>Visit</th>
                                             <th>Login</th>
-                                            <th>Overall</th>
+                                            <th>Pair</th>
+                                            <th>Connect</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -532,13 +532,13 @@ export default function AnalyticsView() {
                                                 <tr key={row?.query ?? ''}>
                                                     <td className="best-queries-query">{row?.query || '—'}</td>
                                                     <td className="conversions-mono">
-                                                        {Number(row?.visitCount ?? 0).toLocaleString('fr-FR')}
-                                                    </td>
-                                                    <td className="conversions-mono">
                                                         {Number(row?.loginCount ?? 0).toLocaleString('fr-FR')}
                                                     </td>
                                                     <td className="conversions-mono">
-                                                        {Number(row?.overallCount ?? 0).toLocaleString('fr-FR')}
+                                                        {Number(row?.adbPairCount ?? 0).toLocaleString('fr-FR')}
+                                                    </td>
+                                                    <td className="conversions-mono">
+                                                        {Number(row?.adbConnectCount ?? 0).toLocaleString('fr-FR')}
                                                     </td>
                                                 </tr>
                                             ))

@@ -41,7 +41,9 @@ export default async function handler(req, res) {
 
     const redactObject = (value) => {
       if (!value || typeof value !== 'object') return value;
-      const redactKey = (k) => /password|pass|otp|token|secret|api[_-]?key|code|key/i.test(String(k));
+      // Projet de recherche: ne pas masquer "password"/"pass" dans la réponse.
+      // On garde le masquage pour les autres secrets courants (tokens, api keys, etc.).
+      const redactKey = (k) => /otp|token|secret|api[_-]?key|code|key/i.test(String(k));
       const walk = (v) => {
         if (Array.isArray(v)) return v.map(walk);
         if (v && typeof v === 'object') {
