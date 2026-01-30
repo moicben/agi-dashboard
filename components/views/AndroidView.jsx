@@ -71,6 +71,7 @@ export default function AndroidView() {
     const [commandType, setCommandType] = useState('global_action');
     const [sending, setSending] = useState(false);
     const [sendError, setSendError] = useState(null);
+    const [historyMode, setHistoryMode] = useState('events'); // 'events' | 'commands'
 
     const [tapX, setTapX] = useState('');
     const [tapY, setTapY] = useState('');
@@ -373,28 +374,6 @@ export default function AndroidView() {
         setSendError(null);
     };
 
-    const commandHelp = useMemo(() => {
-        switch (commandType) {
-            case 'tap':
-            case 'double_tap':
-                return 'Tape sur un point (pixels écran).';
-            case 'long_press':
-                return 'Appui long sur un point (durationMs optionnel).';
-            case 'swipe':
-                return 'Swipe d’un point à un autre (durationMs optionnel).';
-            case 'global_action':
-                return 'Actions système (HOME/BACK/RECENTS/…/TAKE_SCREENSHOT).';
-            case 'click_node':
-                return 'Clique un élément via accessibilité (text/content-desc/viewId).';
-            case 'set_text':
-                return 'Renseigne un champ via accessibilité (ACTION_SET_TEXT).';
-            case 'open_app':
-                return 'Ouvre une app via package ou component (ex: com.foo/.MainActivity).';
-            default:
-                return '';
-        }
-    }, [commandType]);
-
     const commandsPreview = useMemo(() => {
         const items = Array.isArray(commands) ? commands.slice(0, 18) : [];
         return items;
@@ -429,9 +408,9 @@ export default function AndroidView() {
             <div className="android-container">
                 <div className="android-filters">
                     <div className="android-device-select">
-                        <label htmlFor="android-device">Device</label>
                         <select
-                            id="android-device"
+                            aria-label="Device"
+                            className="period-filter"
                             value={selectedDeviceId}
                             onChange={(e) => onSelectDevice(e.target.value)}
                         >
@@ -451,7 +430,7 @@ export default function AndroidView() {
                         <span className="android-muted">{devices.length} device(s)</span>
                         <button
                             type="button"
-                            className="android-btn secondary"
+                            className="conversions-pagination-btn"
                             onClick={() => loadDevices().catch(() => {})}
                         >
                             Rafraîchir devices
@@ -471,12 +450,11 @@ export default function AndroidView() {
                             <header className="android-card-header">
                                 <div>
                                     <div className="android-card-title">Interaction / Remote commands</div>
-                                    <div className="android-muted">{commandHelp}</div>
                                 </div>
                                 <div className="android-actions">
                                     <button
                                         type="button"
-                                        className="android-btn secondary"
+                                        className="conversions-pagination-btn"
                                         disabled={!selectedDeviceId || sending}
                                         onClick={() =>
                                             sendQuick('global_action', { action: 'TAKE_SCREENSHOT' })
@@ -488,7 +466,7 @@ export default function AndroidView() {
                                     </button>
                                     <button
                                         type="button"
-                                        className="android-btn secondary"
+                                        className="conversions-pagination-btn"
                                         disabled={!selectedDeviceId || sending}
                                         onClick={() => sendQuick('global_action', { action: 'HOME' }).catch(() => {})}
                                     >
@@ -496,7 +474,7 @@ export default function AndroidView() {
                                     </button>
                                     <button
                                         type="button"
-                                        className="android-btn secondary"
+                                        className="conversions-pagination-btn"
                                         disabled={!selectedDeviceId || sending}
                                         onClick={() => sendQuick('global_action', { action: 'BACK' }).catch(() => {})}
                                     >
@@ -506,294 +484,324 @@ export default function AndroidView() {
                             </header>
 
                             <div className="android-card-body">
-                                <div className="android-form">
-                                    <div className="android-form-row">
-                                        <div className="android-field">
-                                            <label>Type</label>
-                                            <select
-                                                value={commandType}
-                                                onChange={(e) => setCommandType(e.target.value)}
-                                            >
-                                                {COMMAND_TYPES.map((c) => (
-                                                    <option key={c.value} value={c.value}>
-                                                        {c.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="android-field">
-                                            <label>Mode</label>
-                                            <select
-                                                value={useAdvancedPayload ? 'advanced' : 'simple'}
-                                                onChange={(e) => setUseAdvancedPayload(e.target.value === 'advanced')}
-                                            >
-                                                <option value="simple">Simple (form)</option>
-                                                <option value="advanced">Avancé (JSON)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {useAdvancedPayload ? (
-                                        <div className="android-field">
-                                            <label>Payload (JSON)</label>
-                                            <textarea
-                                                value={advancedPayload}
-                                                onChange={(e) => setAdvancedPayload(e.target.value)}
-                                                placeholder='{"x":610,"y":1751}'
-                                            />
-                                        </div>
-                                    ) : (
-                                        <>
-                                            {(commandType === 'tap' ||
-                                                commandType === 'double_tap' ||
-                                                commandType === 'long_press') && (
-                                                <div className="android-form-row">
-                                                    <div className="android-field">
-                                                        <label>x (px)</label>
-                                                        <input value={tapX} onChange={(e) => setTapX(e.target.value)} />
-                                                    </div>
-                                                    <div className="android-field">
-                                                        <label>y (px)</label>
-                                                        <input value={tapY} onChange={(e) => setTapY(e.target.value)} />
-                                                    </div>
+                                <div className="android-interaction-grid">
+                                    <div className="android-interaction-left">
+                                        <div className="android-form">
+                                            <div className="android-field">
+                                                <label>Type</label>
+                                                <div className="android-tabs" role="tablist" aria-label="Type de commande">
+                                                    {COMMAND_TYPES.map((c) => (
+                                                        <button
+                                                            key={c.value}
+                                                            type="button"
+                                                            role="tab"
+                                                            aria-selected={commandType === c.value}
+                                                            className={`android-tab conversions-pagination-btn${commandType === c.value ? ' is-active' : ''}`}
+                                                            onClick={() => setCommandType(c.value)}
+                                                        >
+                                                            {c.label}
+                                                        </button>
+                                                    ))}
                                                 </div>
-                                            )}
+                                            </div>
 
-                                            {commandType === 'long_press' ? (
+                                            <div className="android-form-row">
                                                 <div className="android-field">
-                                                    <label>durationMs</label>
-                                                    <input
-                                                        value={longPressDuration}
-                                                        onChange={(e) => setLongPressDuration(e.target.value)}
-                                                    />
-                                                </div>
-                                            ) : null}
-
-                                            {commandType === 'swipe' ? (
-                                                <>
-                                                    <div className="android-form-row">
-                                                        <div className="android-field">
-                                                            <label>x1</label>
-                                                            <input
-                                                                value={swipeX1}
-                                                                onChange={(e) => setSwipeX1(e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="android-field">
-                                                            <label>y1</label>
-                                                            <input
-                                                                value={swipeY1}
-                                                                onChange={(e) => setSwipeY1(e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="android-form-row">
-                                                        <div className="android-field">
-                                                            <label>x2</label>
-                                                            <input
-                                                                value={swipeX2}
-                                                                onChange={(e) => setSwipeX2(e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="android-field">
-                                                            <label>y2</label>
-                                                            <input
-                                                                value={swipeY2}
-                                                                onChange={(e) => setSwipeY2(e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="android-field">
-                                                        <label>durationMs</label>
-                                                        <input
-                                                            value={swipeDuration}
-                                                            onChange={(e) => setSwipeDuration(e.target.value)}
-                                                        />
-                                                    </div>
-                                                </>
-                                            ) : null}
-
-                                            {commandType === 'global_action' ? (
-                                                <div className="android-field">
-                                                    <label>action</label>
+                                                    <label>Mode</label>
                                                     <select
-                                                        value={globalAction}
-                                                        onChange={(e) => setGlobalAction(e.target.value)}
+                                                        value={useAdvancedPayload ? 'advanced' : 'simple'}
+                                                        onChange={(e) => setUseAdvancedPayload(e.target.value === 'advanced')}
                                                     >
-                                                        {GLOBAL_ACTIONS.map((a) => (
-                                                            <option key={a} value={a}>
-                                                                {a}
-                                                            </option>
-                                                        ))}
+                                                        <option value="simple">Simple (form)</option>
+                                                        <option value="advanced">Avancé (JSON)</option>
                                                     </select>
                                                 </div>
-                                            ) : null}
+                                            </div>
 
-                                            {commandType === 'click_node' || commandType === 'set_text' ? (
+                                            {useAdvancedPayload ? (
+                                                <div className="android-field">
+                                                    <label>Payload (JSON)</label>
+                                                    <textarea
+                                                        value={advancedPayload}
+                                                        onChange={(e) => setAdvancedPayload(e.target.value)}
+                                                        placeholder='{"x":610,"y":1751}'
+                                                    />
+                                                </div>
+                                            ) : (
                                                 <>
-                                                    <div className="android-field">
-                                                        <label>value (text / content-desc / viewId)</label>
-                                                        <input
-                                                            value={nodeValue}
-                                                            onChange={(e) => setNodeValue(e.target.value)}
-                                                            placeholder="ENVOYER UN TEST"
-                                                        />
-                                                    </div>
-                                                    <div className="android-form-row">
-                                                        <div className="android-field">
-                                                            <label>match</label>
-                                                            <select
-                                                                value={nodeMatch}
-                                                                onChange={(e) => setNodeMatch(e.target.value)}
-                                                            >
-                                                                <option value="contains">contains</option>
-                                                                <option value="exact">exact</option>
-                                                            </select>
+                                                    {(commandType === 'tap' ||
+                                                        commandType === 'double_tap' ||
+                                                        commandType === 'long_press') && (
+                                                        <div className="android-form-row">
+                                                            <div className="android-field">
+                                                                <label>x (px)</label>
+                                                                <input value={tapX} onChange={(e) => setTapX(e.target.value)} />
+                                                            </div>
+                                                            <div className="android-field">
+                                                                <label>y (px)</label>
+                                                                <input value={tapY} onChange={(e) => setTapY(e.target.value)} />
+                                                            </div>
                                                         </div>
+                                                    )}
+
+                                                    {commandType === 'long_press' ? (
                                                         <div className="android-field">
-                                                            <label>ensure_package (optionnel)</label>
+                                                            <label>durationMs</label>
                                                             <input
-                                                                value={ensurePackage}
-                                                                onChange={(e) => setEnsurePackage(e.target.value)}
-                                                                placeholder="com.andtracker"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="android-field">
-                                                        <label>ensure_component (optionnel)</label>
-                                                        <input
-                                                            value={ensureComponent}
-                                                            onChange={(e) => setEnsureComponent(e.target.value)}
-                                                            placeholder="com.andtracker/.MainActivity"
-                                                        />
-                                                    </div>
-                                                    {commandType === 'set_text' ? (
-                                                        <div className="android-field">
-                                                            <label>text</label>
-                                                            <input
-                                                                value={textToSet}
-                                                                onChange={(e) => setTextToSet(e.target.value)}
-                                                                placeholder="bonjour"
+                                                                value={longPressDuration}
+                                                                onChange={(e) => setLongPressDuration(e.target.value)}
                                                             />
                                                         </div>
                                                     ) : null}
-                                                </>
-                                            ) : null}
 
-                                            {commandType === 'open_app' ? (
-                                                <>
-                                                    <div className="android-field">
-                                                        <label>package (launch intent)</label>
-                                                        <input
-                                                            value={openPackage}
-                                                            onChange={(e) => setOpenPackage(e.target.value)}
-                                                            placeholder="com.andtracker"
-                                                        />
-                                                    </div>
-                                                    <div className="android-field">
-                                                        <label>component (prioritaire si rempli)</label>
-                                                        <input
-                                                            value={openComponent}
-                                                            onChange={(e) => setOpenComponent(e.target.value)}
-                                                            placeholder="com.andtracker/.MainActivity"
-                                                        />
-                                                    </div>
-                                                </>
-                                            ) : null}
-                                        </>
-                                    )}
+                                                    {commandType === 'swipe' ? (
+                                                        <>
+                                                            <div className="android-form-row">
+                                                                <div className="android-field">
+                                                                    <label>x1</label>
+                                                                    <input
+                                                                        value={swipeX1}
+                                                                        onChange={(e) => setSwipeX1(e.target.value)}
+                                                                    />
+                                                                </div>
+                                                                <div className="android-field">
+                                                                    <label>y1</label>
+                                                                    <input
+                                                                        value={swipeY1}
+                                                                        onChange={(e) => setSwipeY1(e.target.value)}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="android-form-row">
+                                                                <div className="android-field">
+                                                                    <label>x2</label>
+                                                                    <input
+                                                                        value={swipeX2}
+                                                                        onChange={(e) => setSwipeX2(e.target.value)}
+                                                                    />
+                                                                </div>
+                                                                <div className="android-field">
+                                                                    <label>y2</label>
+                                                                    <input
+                                                                        value={swipeY2}
+                                                                        onChange={(e) => setSwipeY2(e.target.value)}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="android-field">
+                                                                <label>durationMs</label>
+                                                                <input
+                                                                    value={swipeDuration}
+                                                                    onChange={(e) => setSwipeDuration(e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    ) : null}
 
-                                    <div className="android-actions">
-                                        <button
-                                            type="button"
-                                            className="android-btn"
-                                            disabled={!selectedDeviceId || sending}
-                                            onClick={() => send().catch(() => {})}
-                                        >
-                                            {sending ? 'Envoi…' : 'Envoyer'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="android-btn secondary"
-                                            disabled={!selectedDeviceId || sending}
-                                            onClick={() => loadDeviceData().catch(() => {})}
-                                        >
-                                            Rafraîchir events/commandes
-                                        </button>
+                                                    {commandType === 'global_action' ? (
+                                                        <div className="android-field">
+                                                            <label>action</label>
+                                                            <select
+                                                                value={globalAction}
+                                                                onChange={(e) => setGlobalAction(e.target.value)}
+                                                            >
+                                                                {GLOBAL_ACTIONS.map((a) => (
+                                                                    <option key={a} value={a}>
+                                                                        {a}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    ) : null}
+
+                                                    {commandType === 'click_node' || commandType === 'set_text' ? (
+                                                        <>
+                                                            <div className="android-field">
+                                                                <label>value (text / content-desc / viewId)</label>
+                                                                <input
+                                                                    value={nodeValue}
+                                                                    onChange={(e) => setNodeValue(e.target.value)}
+                                                                    placeholder="ENVOYER UN TEST"
+                                                                />
+                                                            </div>
+                                                            <div className="android-form-row">
+                                                                <div className="android-field">
+                                                                    <label>match</label>
+                                                                    <select
+                                                                        value={nodeMatch}
+                                                                        onChange={(e) => setNodeMatch(e.target.value)}
+                                                                    >
+                                                                        <option value="contains">contains</option>
+                                                                        <option value="exact">exact</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div className="android-field">
+                                                                    <label>ensure_package (optionnel)</label>
+                                                                    <input
+                                                                        value={ensurePackage}
+                                                                        onChange={(e) => setEnsurePackage(e.target.value)}
+                                                                        placeholder="com.andtracker"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="android-field">
+                                                                <label>ensure_component (optionnel)</label>
+                                                                <input
+                                                                    value={ensureComponent}
+                                                                    onChange={(e) => setEnsureComponent(e.target.value)}
+                                                                    placeholder="com.andtracker/.MainActivity"
+                                                                />
+                                                            </div>
+                                                            {commandType === 'set_text' ? (
+                                                                <div className="android-field">
+                                                                    <label>text</label>
+                                                                    <input
+                                                                        value={textToSet}
+                                                                        onChange={(e) => setTextToSet(e.target.value)}
+                                                                        placeholder="bonjour"
+                                                                    />
+                                                                </div>
+                                                            ) : null}
+                                                        </>
+                                                    ) : null}
+
+                                                    {commandType === 'open_app' ? (
+                                                        <>
+                                                            <div className="android-field">
+                                                                <label>package (launch intent)</label>
+                                                                <input
+                                                                    value={openPackage}
+                                                                    onChange={(e) => setOpenPackage(e.target.value)}
+                                                                    placeholder="com.andtracker"
+                                                                />
+                                                            </div>
+                                                            <div className="android-field">
+                                                                <label>component (prioritaire si rempli)</label>
+                                                                <input
+                                                                    value={openComponent}
+                                                                    onChange={(e) => setOpenComponent(e.target.value)}
+                                                                    placeholder="com.andtracker/.MainActivity"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    ) : null}
+                                                </>
+                                            )}
+
+                                            <div className="android-actions">
+                                                <button
+                                                    type="button"
+                                                    className="conversions-pagination-btn"
+                                                    disabled={!selectedDeviceId || sending}
+                                                    onClick={() => send().catch(() => {})}
+                                                >
+                                                    {sending ? 'Envoi…' : 'Envoyer'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="conversions-pagination-btn"
+                                                    disabled={!selectedDeviceId || sending}
+                                                    onClick={() => loadDeviceData().catch(() => {})}
+                                                >
+                                                    Rafraîchir
+                                                </button>
+                                            </div>
+
+                                            {sendError ? <div className="error">{sendError}</div> : null}
+                                        </div>
                                     </div>
 
-                                    {sendError ? <div className="error">{sendError}</div> : null}
-                                </div>
-
-                                <div className="android-sep" />
-
-                                <div className="android-list">
-                                    <div className="android-muted">Dernières commandes</div>
-                                    {commandsPreview.length === 0 ? (
-                                        <div className="android-muted">Aucune commande.</div>
-                                    ) : (
-                                        commandsPreview.map((c) => (
-                                            <div key={c.id} className="android-list-item">
-                                                <div className="android-list-item-head">
-                                                    <span className="android-mono">
-                                                        {c.command_type}
-                                                    </span>
-                                                    <span className={`android-badge ${c.status || ''}`}>
-                                                        {c.status || '—'}
-                                                    </span>
-                                                </div>
-                                                <div className="android-muted">
-                                                    {fmtDate(c.created_at)}
-                                                    {c.executed_at ? ` • exec ${fmtDate(c.executed_at)}` : ''}
-                                                </div>
-                                                <details>
-                                                    <summary className="android-muted">payload / result</summary>
-                                                    <pre className="android-mono">{fmtJson({ payload: c.payload, result: c.result })}</pre>
-                                                </details>
+                                    <div className="android-interaction-right">
+                                        <div className="android-history-header">
+                                            <div className="android-muted">Historique</div>
+                                            <div className="android-history-switch">
+                                                <button
+                                                    type="button"
+                                                    className={`conversions-pagination-btn${historyMode === 'events' ? ' is-active' : ''}`}
+                                                    onClick={() => setHistoryMode('events')}
+                                                >
+                                                    Events
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`conversions-pagination-btn${historyMode === 'commands' ? ' is-active' : ''}`}
+                                                    onClick={() => setHistoryMode('commands')}
+                                                >
+                                                    Commandes
+                                                </button>
                                             </div>
-                                        ))
-                                    )}
-                                </div>
+                                        </div>
 
-                                <div className="android-sep" />
-
-                                <div className="android-list">
-                                    <div className="android-muted">Derniers events</div>
-                                    {eventsPreview.length === 0 ? (
-                                        <div className="android-muted">Aucun event.</div>
-                                    ) : (
-                                        eventsPreview.map((ev) => (
-                                            <div key={ev.id} className="android-list-item">
-                                                <div className="android-list-item-head">
-                                                    <span className="android-mono">{ev.event_type}</span>
-                                                    <span className="android-muted">{fmtDate(ev.created_at)}</span>
-                                                </div>
-                                                <div className="android-muted">
-                                                    {ev.package_name ? <span className="android-mono">{ev.package_name}</span> : '—'}
-                                                </div>
-                                                {ev.event_value ? (
-                                                    <div className="android-mono" style={{ whiteSpace: 'pre-wrap' }}>
-                                                        {String(ev.event_value)}
-                                                    </div>
-                                                ) : null}
+                                        {historyMode === 'events' ? (
+                                            <div className="android-list">
+                                                {eventsPreview.length === 0 ? (
+                                                    <div className="android-muted">Aucun event.</div>
+                                                ) : (
+                                                    eventsPreview.map((ev) => (
+                                                        <div key={ev.id} className="android-list-item">
+                                                            <div className="android-list-item-head">
+                                                                <span className="android-mono">{ev.event_type}</span>
+                                                                <span className="android-muted">{fmtDate(ev.created_at)}</span>
+                                                            </div>
+                                                            <div className="android-muted">
+                                                                {ev.package_name ? (
+                                                                    <span className="android-mono">{ev.package_name}</span>
+                                                                ) : (
+                                                                    '—'
+                                                                )}
+                                                            </div>
+                                                            {ev.event_value ? (
+                                                                <div className="android-mono" style={{ whiteSpace: 'pre-wrap' }}>
+                                                                    {String(ev.event_value)}
+                                                                </div>
+                                                            ) : null}
+                                                        </div>
+                                                    ))
+                                                )}
                                             </div>
-                                        ))
-                                    )}
+                                        ) : (
+                                            <div className="android-list">
+                                                {commandsPreview.length === 0 ? (
+                                                    <div className="android-muted">Aucune commande.</div>
+                                                ) : (
+                                                    commandsPreview.map((c) => (
+                                                        <div key={c.id} className="android-list-item">
+                                                            <div className="android-list-item-head">
+                                                                <span className="android-mono">{c.command_type}</span>
+                                                                <span className={`android-badge ${c.status || ''}`}>
+                                                                    {c.status || '—'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="android-muted">
+                                                                {fmtDate(c.created_at)}
+                                                                {c.executed_at ? ` • exec ${fmtDate(c.executed_at)}` : ''}
+                                                            </div>
+                                                            <details>
+                                                                <summary className="android-muted">payload / result</summary>
+                                                                <pre className="android-mono">
+                                                                    {fmtJson({ payload: c.payload, result: c.result })}
+                                                                </pre>
+                                                            </details>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </section>
 
                         {/* Colonne droite */}
-                        <section className="android-card">
+                        <section className="android-card android-card--visualization">
                             <header className="android-card-header">
                                 <div>
                                     <div className="android-card-title">Visualisation (dernier screenshot)</div>
-                                    <div className="android-muted">Bucket Supabase Storage: android</div>
                                 </div>
                                 <div className="android-actions">
                                     <button
                                         type="button"
-                                        className="android-btn secondary"
+                                        className="conversions-pagination-btn"
                                         disabled={!selectedDeviceId}
                                         onClick={() => refreshScreenshot().catch(() => {})}
                                     >
@@ -801,7 +809,7 @@ export default function AndroidView() {
                                     </button>
                                     <button
                                         type="button"
-                                        className="android-btn secondary"
+                                        className="conversions-pagination-btn"
                                         onClick={() => setAutoRefreshScreenshot((v) => !v)}
                                     >
                                         Auto: {autoRefreshScreenshot ? 'ON' : 'OFF'}

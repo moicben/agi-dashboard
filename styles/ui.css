@@ -1,0 +1,88 @@
+/* Styles UI communs (toutes les vues) */
+
+/* Cards / panels (uniformise Analytics / Android / Containers / Calendar) */
+.analytics-card,
+.android-card,
+.grid-item {
+    background: var(--panel-bg);
+    border: var(--panel-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--panel-shadow);
+}
+
+/* Hover uniforme */
+.analytics-card:hover,
+.android-card:hover,
+.grid-item:hover {
+    border-color: var(--control-hover-border);
+}
+
+/* Headers de cards */
+.analytics-card-header,
+.android-card-header,
+.grid-item-header {
+    background: rgba(10, 10, 10, 0.9);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Titres de cards (typo cohérente) */
+.analytics-card-title,
+.android-card-title {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+}
+
+/* Boutons: unifie la palette (tailles/spacing restent gérés par chaque vue) */
+.btn,
+.conversions-pagination-btn {
+    background: var(--control-bg);
+    color: var(--text-1);
+    border: var(--control-border);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.btn:hover,
+.conversions-pagination-btn:hover:not(:disabled) {
+    border-color: var(--control-hover-border);
+    background-color: var(--control-hover-bg);
+}
+
+.btn:focus-visible,
+.conversions-pagination-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.22);
+    outline-offset: 2px;
+}
+
+/* Selects: unifie (Analytics + Android) */
+.period-filter {
+    background: var(--control-bg);
+    color: var(--text-1);
+    border: var(--control-border);
+}
+
+.period-filter:hover {
+    border-color: var(--control-hover-border);
+    background-color: var(--control-hover-bg);
+}
+
+.period-filter:focus {
+    outline: none;
+    border-color: var(--focus) !important;
+    background-color: var(--control-hover-bg);
+}
+
+.period-filter option {
+    background: var(--control-hover-bg);
+    color: var(--text-1);
+}
+
+/* Textes secondaires */
+.grid-item-header .ip {
+    color: var(--text-muted);
+}
+

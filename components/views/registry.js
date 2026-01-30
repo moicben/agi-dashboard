@@ -1,8 +1,7 @@
 import ContainersView from './ContainersView.jsx';
-import CalendarView from './CalendarView.jsx';
 import AnalyticsView from './AnalyticsView.jsx';
 import AndroidView from './AndroidView.jsx';
-import { AnalyticsIcon, AndroidIcon, CalendarIcon, ContainersIcon } from '../ViewIcons.jsx';
+import { AnalyticsIcon, AndroidIcon, ContainersIcon } from '../ViewIcons.jsx';
 
 export const viewRegistry = [
     {
@@ -28,14 +27,6 @@ export const viewRegistry = [
         description: 'Suivi VNC en temps réel',
         Component: ContainersView,
         Icon: ContainersIcon
-    },
-    {
-        id: 'calendar',
-        label: 'Calendar',
-        title: 'Calendar',
-        description: 'Planning et réunions',
-        Component: CalendarView,
-        Icon: CalendarIcon
     }
 ];
 

@@ -54,49 +54,7 @@
     }
 }
 
-/* Responsive Calendar */
-@media (max-width: 1200px) {
-    .calendar {
-        height: calc(100vh - 200px);
-    }
-    
-    .calendar-grid {
-        grid-template-columns: 60px repeat(4, minmax(100px, 1fr));
-    }
-    
-    .calendar-time-cell {
-        font-size: 11px;
-        padding: 6px 4px;
-    }
-    
-    .calendar-day-header {
-        padding: 10px 24px;
-    }
-    
-    .day-name {
-        font-size: 11px;
-    }
-    
-    .day-number {
-        font-size: 16px;
-    }
-}
-
 @media (max-width: 768px) {
-    .calendar-header {
-        flex-direction: column;
-        gap: 12px;
-    }
-    
-    .calendar-week-title {
-        min-width: auto;
-        font-size: 14px;
-    }
-    
-    .calendar {
-        height: calc(100vh - 250px);
-    }
-    
     .controls-left {
         flex-wrap: wrap;
         width: 100%;
@@ -120,11 +78,6 @@
     .containers-controls {
         width: 100%;
         justify-content: space-between;
-    }
-    
-    .calendar-header {
-        width: 100%;
-        margin-left: 0;
     }
 }
 

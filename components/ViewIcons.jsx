@@ -70,43 +70,6 @@ export function ContainersIcon(props) {
     );
 }
 
-export function CalendarIcon(props) {
-    return (
-        <svg {...baseSvgProps(props)}>
-            <path
-                d="M7 4.5V7.5"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-            />
-            <path
-                d="M17 4.5V7.5"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-            />
-            <path
-                d="M6.5 7.5H17.5C18.6 7.5 19.5 8.4 19.5 9.5V17.5C19.5 18.6 18.6 19.5 17.5 19.5H6.5C5.4 19.5 4.5 18.6 4.5 17.5V9.5C4.5 8.4 5.4 7.5 6.5 7.5Z"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M4.5 10.5H19.5"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-            />
-            <path
-                d="M8.5 13.5H11.5V16.5H8.5V13.5Z"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
 export function AndroidIcon(props) {
     return (
         <svg {...baseSvgProps(props)}>
