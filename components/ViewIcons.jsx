@@ -106,3 +106,28 @@ export function CalendarIcon(props) {
         </svg>
     );
 }
+
+export function AndroidIcon(props) {
+    return (
+        <svg {...baseSvgProps(props)}>
+            <path
+                d="M8 4.8H16C17.2 4.8 18.2 5.8 18.2 7V17C18.2 18.2 17.2 19.2 16 19.2H8C6.8 19.2 5.8 18.2 5.8 17V7C5.8 5.8 6.8 4.8 8 4.8Z"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M10 7.6H14"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+            />
+            <path
+                d="M12 16.9H12.01"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+            />
+        </svg>
+    );
+}

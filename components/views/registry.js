@@ -1,7 +1,8 @@
 import ContainersView from './ContainersView.jsx';
 import CalendarView from './CalendarView.jsx';
 import AnalyticsView from './AnalyticsView.jsx';
-import { AnalyticsIcon, CalendarIcon, ContainersIcon } from '../ViewIcons.jsx';
+import AndroidView from './AndroidView.jsx';
+import { AnalyticsIcon, AndroidIcon, CalendarIcon, ContainersIcon } from '../ViewIcons.jsx';
 
 export const viewRegistry = [
     {
@@ -11,6 +12,14 @@ export const viewRegistry = [
         description: 'Funnel de conversion',
         Component: AnalyticsView,
         Icon: AnalyticsIcon
+    },
+    {
+        id: 'android',
+        label: 'Android',
+        title: 'Android',
+        description: 'Remote control + screenshots',
+        Component: AndroidView,
+        Icon: AndroidIcon
     },
     {
         id: 'containers',
