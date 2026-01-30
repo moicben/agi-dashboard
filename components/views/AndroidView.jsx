@@ -449,7 +449,7 @@ export default function AndroidView() {
                         <section className="android-card">
                             <header className="android-card-header">
                                 <div>
-                                    <div className="android-card-title">Interactions</div>
+                                    <div className="android-card-title">Monitoring</div>
                                 </div>
                                 <div className="android-actions">
                                     <button
@@ -488,7 +488,7 @@ export default function AndroidView() {
                                     <div className="android-interaction-left">
                                         <div className="android-form">
                                             <div className="android-field">
-                                                <label>Type</label>
+                                                <label>Interact</label>
                                                 <div className="android-tabs" role="tablist" aria-label="Type de commande">
                                                     {COMMAND_TYPES.map((c) => (
                                                         <button
@@ -713,7 +713,7 @@ export default function AndroidView() {
 
                                     <div className="android-interaction-right">
                                         <div className="android-history-header">
-                                            <div className="android-muted">Historique</div>
+                                            <div className="android-muted">Historic</div>
                                             <div className="android-history-switch">
                                                 <button
                                                     type="button"
