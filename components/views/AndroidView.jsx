@@ -5,6 +5,9 @@ import {
     fetchAndroidDevices,
     fetchAndroidEvents,
     fetchAndroidLatestScreenshot,
+    fetchAndroidScreenshotDayIndex,
+    fetchAndroidScreenshotDays,
+    fetchAndroidScreenshotFrames,
     sendAndroidCommand
 } from '../../lib/api.js';
 
@@ -55,6 +58,12 @@ function fmtJson(v) {
     }
 }
 
+function pad2(n) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return '00';
+    return String(Math.max(0, Math.min(99, Math.trunc(v)))).padStart(2, '0');
+}
+
 export default function AndroidView() {
     const [devices, setDevices] = useState([]);
     const [selectedDeviceId, setSelectedDeviceId] = useState('');
@@ -67,11 +76,33 @@ export default function AndroidView() {
     const [screenshot, setScreenshot] = useState(null);
     const [screenshotError, setScreenshotError] = useState(null);
     const [autoRefreshScreenshot, setAutoRefreshScreenshot] = useState(true);
+    const [viewerMode, setViewerMode] = useState('live'); // 'live' | 'player'
 
     const [commandType, setCommandType] = useState('global_action');
     const [sending, setSending] = useState(false);
     const [sendError, setSendError] = useState(null);
-    const [historyMode, setHistoryMode] = useState('events'); // 'events' | 'commands'
+    const [historyMode, setHistoryMode] = useState('events'); // 'screen_activity' | 'events' | 'commands'
+
+    // Screen activity (Historic tab)
+    const [screenDays, setScreenDays] = useState([]);
+    const [screenDaysLoading, setScreenDaysLoading] = useState(false);
+    const [screenDaysError, setScreenDaysError] = useState(null);
+    const [selectedScreenDay, setSelectedScreenDay] = useState('');
+
+    const [dayIndex, setDayIndex] = useState(null); // {hours,totalFiles,truncated}
+    const [dayIndexLoading, setDayIndexLoading] = useState(false);
+    const [dayIndexError, setDayIndexError] = useState(null);
+
+    // Player state
+    const [playerDay, setPlayerDay] = useState('');
+    const [playerHour, setPlayerHour] = useState(null);
+    const [playerFrames, setPlayerFrames] = useState([]);
+    const [playerLoading, setPlayerLoading] = useState(false);
+    const [playerError, setPlayerError] = useState(null);
+    const [playerIndex, setPlayerIndex] = useState(0);
+    const [playerPlaying, setPlayerPlaying] = useState(false);
+    const [playerSpeed, setPlayerSpeed] = useState(2); // x1,x2,x4,x8
+    const playerTimerRef = useRef(null);
 
     const [tapX, setTapX] = useState('');
     const [tapY, setTapY] = useState('');
@@ -161,6 +192,32 @@ export default function AndroidView() {
         }
     }, [selectedDeviceId]);
 
+    const stopPlayer = useCallback(() => {
+        if (playerTimerRef.current) clearInterval(playerTimerRef.current);
+        playerTimerRef.current = null;
+        setPlayerPlaying(false);
+    }, []);
+
+    const resetScreenActivity = useCallback(() => {
+        setScreenDays([]);
+        setScreenDaysLoading(false);
+        setScreenDaysError(null);
+        setSelectedScreenDay('');
+
+        setDayIndex(null);
+        setDayIndexLoading(false);
+        setDayIndexError(null);
+
+        stopPlayer();
+        setPlayerDay('');
+        setPlayerHour(null);
+        setPlayerFrames([]);
+        setPlayerLoading(false);
+        setPlayerError(null);
+        setPlayerIndex(0);
+        setPlayerSpeed(2);
+    }, [stopPlayer]);
+
     useEffect(() => {
         const boot = async () => {
             setLoading(true);
@@ -219,6 +276,135 @@ export default function AndroidView() {
             if (screenshotPollRef.current) clearInterval(screenshotPollRef.current);
         };
     }, [autoRefreshScreenshot, refreshScreenshot, selectedDeviceId]);
+
+    // Player "video" loop (frame par frame)
+    useEffect(() => {
+        if (playerTimerRef.current) clearInterval(playerTimerRef.current);
+        playerTimerRef.current = null;
+
+        if (viewerMode !== 'player') return;
+        if (!playerPlaying) return;
+        if (!Array.isArray(playerFrames) || playerFrames.length <= 1) return;
+
+        const baseFps = 6;
+        const speed = Number(playerSpeed) || 1;
+        const fps = Math.max(1, Math.min(60, Math.round(baseFps * speed)));
+        const intervalMs = Math.round(1000 / fps);
+
+        playerTimerRef.current = setInterval(() => {
+            setPlayerIndex((i) => {
+                const next = i + 1;
+                if (next >= playerFrames.length) return i;
+                return next;
+            });
+        }, intervalMs);
+
+        return () => {
+            if (playerTimerRef.current) clearInterval(playerTimerRef.current);
+            playerTimerRef.current = null;
+        };
+    }, [playerFrames, playerPlaying, playerSpeed, viewerMode]);
+
+    // Stop auto at end
+    useEffect(() => {
+        if (viewerMode !== 'player') return;
+        if (!playerPlaying) return;
+        if (!Array.isArray(playerFrames) || playerFrames.length === 0) return;
+        if (playerIndex >= playerFrames.length - 1) stopPlayer();
+    }, [playerFrames, playerIndex, playerPlaying, stopPlayer, viewerMode]);
+
+    // Load days when entering Screen activity
+    useEffect(() => {
+        if (historyMode !== 'screen_activity') return;
+        if (!selectedDeviceId) return;
+
+        let cancelled = false;
+        setScreenDaysLoading(true);
+        setScreenDaysError(null);
+
+        fetchAndroidScreenshotDays(selectedDeviceId)
+            .then((days) => {
+                if (cancelled) return;
+                const list = Array.isArray(days) ? days : [];
+                setScreenDays(list);
+                setSelectedScreenDay((prev) => prev || (list[0]?.name ? String(list[0].name) : ''));
+            })
+            .catch((e) => {
+                if (cancelled) return;
+                setScreenDaysError(e?.message || 'Erreur jours');
+            })
+            .finally(() => {
+                if (cancelled) return;
+                setScreenDaysLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [historyMode, selectedDeviceId]);
+
+    // Load day index when day changes
+    useEffect(() => {
+        if (historyMode !== 'screen_activity') return;
+        if (!selectedDeviceId || !selectedScreenDay) return;
+
+        let cancelled = false;
+        setDayIndexLoading(true);
+        setDayIndexError(null);
+
+        fetchAndroidScreenshotDayIndex(selectedDeviceId, selectedScreenDay, { maxFiles: 5000 })
+            .then((data) => {
+                if (cancelled) return;
+                setDayIndex(data);
+            })
+            .catch((e) => {
+                if (cancelled) return;
+                setDayIndex(null);
+                setDayIndexError(e?.message || 'Erreur index');
+            })
+            .finally(() => {
+                if (cancelled) return;
+                setDayIndexLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [historyMode, selectedDeviceId, selectedScreenDay]);
+
+    const startPlayerForHour = useCallback(
+        async (hour) => {
+            if (!selectedDeviceId) return;
+            const h = Number(hour);
+            if (!Number.isFinite(h) || h < 0 || h > 23) return;
+            const day = String(selectedScreenDay || '');
+            if (!day) return;
+
+            setViewerMode('player');
+            setAutoRefreshScreenshot(false);
+            setPlayerError(null);
+            setPlayerLoading(true);
+            stopPlayer();
+
+            setPlayerDay(day);
+            setPlayerHour(h);
+            setPlayerFrames([]);
+            setPlayerIndex(0);
+
+            try {
+                const data = await fetchAndroidScreenshotFrames(selectedDeviceId, day, h, { limit: 1200 });
+                const frames = Array.isArray(data?.frames) ? data.frames : [];
+                setPlayerFrames(frames);
+                setPlayerIndex(0);
+                setPlayerPlaying(frames.length > 1);
+            } catch (e) {
+                setPlayerError(e?.message || 'Erreur player');
+            } finally {
+                setPlayerLoading(false);
+            }
+        },
+        [selectedDeviceId, selectedScreenDay, stopPlayer]
+    );
 
     const buildPayload = useCallback(() => {
         if (useAdvancedPayload) {
@@ -372,6 +558,9 @@ export default function AndroidView() {
         setScreenshot(null);
         setScreenshotError(null);
         setSendError(null);
+        resetScreenActivity();
+        setViewerMode('live');
+        setAutoRefreshScreenshot(true);
     };
 
     const commandsPreview = useMemo(() => {
@@ -717,6 +906,13 @@ export default function AndroidView() {
                                             <div className="android-history-switch">
                                                 <button
                                                     type="button"
+                                                    className={`conversions-pagination-btn${historyMode === 'screen_activity' ? ' is-active' : ''}`}
+                                                    onClick={() => setHistoryMode('screen_activity')}
+                                                >
+                                                    Screen activity
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     className={`conversions-pagination-btn${historyMode === 'events' ? ' is-active' : ''}`}
                                                     onClick={() => setHistoryMode('events')}
                                                 >
@@ -732,7 +928,65 @@ export default function AndroidView() {
                                             </div>
                                         </div>
 
-                                        {historyMode === 'events' ? (
+                                        {historyMode === 'screen_activity' ? (
+                                            <div className="android-list">
+                                                <div className="android-field" style={{ marginBottom: 6 }}>
+                                                    <label>Jour</label>
+                                                    <select
+                                                        value={selectedScreenDay}
+                                                        onChange={(e) => {
+                                                            stopPlayer();
+                                                            setSelectedScreenDay(e.target.value);
+                                                        }}
+                                                        disabled={screenDaysLoading || !screenDays?.length}
+                                                    >
+                                                        {!screenDays?.length ? (
+                                                            <option value="">Aucun jour</option>
+                                                        ) : (
+                                                            screenDays.map((d) => (
+                                                                <option key={d.name} value={d.name}>
+                                                                    {d.name}
+                                                                </option>
+                                                            ))
+                                                        )}
+                                                    </select>
+                                                </div>
+
+                                                {screenDaysError ? <div className="error">{screenDaysError}</div> : null}
+                                                {screenDaysLoading ? (
+                                                    <div className="android-muted">Chargement des jours…</div>
+                                                ) : null}
+
+                                                {dayIndexError ? <div className="error">{dayIndexError}</div> : null}
+                                                {dayIndexLoading ? (
+                                                    <div className="android-muted">Analyse des screenshots…</div>
+                                                ) : null}
+
+                                                {dayIndex?.truncated ? (
+                                                    <div className="android-muted">
+                                                        Index partiel (scan limité) — certaines heures peuvent manquer.
+                                                    </div>
+                                                ) : null}
+
+                                                {Array.isArray(dayIndex?.hours) && dayIndex.hours.length > 0 ? (
+                                                    <div className="android-hours-grid">
+                                                        {dayIndex.hours.map((h) => (
+                                                            <button
+                                                                key={h.hour}
+                                                                type="button"
+                                                                className="android-hour-card"
+                                                                onClick={() => startPlayerForHour(h.hour)}
+                                                            >
+                                                                <div className="android-hour-title">{pad2(h.hour)}:00</div>
+                                                                <div className="android-muted">{h.count} frame(s)</div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : !dayIndexLoading ? (
+                                                    <div className="android-muted">Aucune activité sur ce jour.</div>
+                                                ) : null}
+                                            </div>
+                                        ) : historyMode === 'events' ? (
                                             <div className="android-list">
                                                 {eventsPreview.length === 0 ? (
                                                     <div className="android-muted">Aucun event.</div>
@@ -807,13 +1061,34 @@ export default function AndroidView() {
                                     >
                                         Rafraîchir
                                     </button> */}
-                                    <button
-                                        type="button"
-                                        className="conversions-pagination-btn"
-                                        onClick={() => setAutoRefreshScreenshot((v) => !v)}
-                                    >
-                                        Auto: {autoRefreshScreenshot ? 'ON' : 'OFF'}
-                                    </button>
+                                    <div className="android-history-switch" role="tablist" aria-label="Mode viewer">
+                                        <button
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={viewerMode === 'live'}
+                                            className={`conversions-pagination-btn${viewerMode === 'live' ? ' is-active' : ''}`}
+                                            onClick={() => {
+                                                stopPlayer();
+                                                setViewerMode('live');
+                                                setAutoRefreshScreenshot(true);
+                                                refreshScreenshot().catch(() => {});
+                                            }}
+                                        >
+                                            Live
+                                        </button>
+                                        <button
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={viewerMode === 'player'}
+                                            className={`conversions-pagination-btn${viewerMode === 'player' ? ' is-active' : ''}`}
+                                            onClick={() => {
+                                                setViewerMode('player');
+                                                setAutoRefreshScreenshot(false);
+                                            }}
+                                        >
+                                            Player
+                                        </button>
+                                    </div>
                                 </div>
                             </header>
 
@@ -821,7 +1096,115 @@ export default function AndroidView() {
                                 {screenshotError ? <div className="error">{screenshotError}</div> : null}
 
                                 <div className="android-screenshot-wrap">
-                                    {screenshot?.url ? (
+                                    {viewerMode === 'player' ? (
+                                        <div className="android-player">
+                                            <div className="android-player-header">
+                                                <div>
+                                                    <div className="android-muted">
+                                                        {playerDay && playerHour !== null
+                                                            ? `Screen activity • ${playerDay} • ${pad2(playerHour)}:00`
+                                                            : 'Screen activity • sélectionne une tranche horaire'}
+                                                    </div>
+                                                    {playerFrames?.length ? (
+                                                        <div className="android-mono">
+                                                            {playerFrames.length} frame(s) • {playerIndex + 1}/{playerFrames.length}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                                <div className="android-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="conversions-pagination-btn"
+                                                        disabled={playerLoading || !playerFrames?.length}
+                                                        onClick={() => {
+                                                            if (!playerFrames?.length) return;
+                                                            setPlayerIndex((i) => Math.max(0, i - 10));
+                                                            stopPlayer();
+                                                        }}
+                                                    >
+                                                        « -10
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="conversions-pagination-btn"
+                                                        disabled={playerLoading || (playerFrames?.length ?? 0) <= 1}
+                                                        onClick={() => setPlayerPlaying((v) => !v)}
+                                                    >
+                                                        {playerPlaying ? 'Pause' : 'Play'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="conversions-pagination-btn"
+                                                        disabled={playerLoading || !playerFrames?.length}
+                                                        onClick={() => {
+                                                            if (!playerFrames?.length) return;
+                                                            setPlayerIndex((i) => Math.min(playerFrames.length - 1, i + 10));
+                                                            stopPlayer();
+                                                        }}
+                                                    >
+                                                        +10 »
+                                                    </button>
+                                                    <select
+                                                        aria-label="Vitesse"
+                                                        value={String(playerSpeed)}
+                                                        onChange={(e) => setPlayerSpeed(Number(e.target.value))}
+                                                        disabled={playerLoading || (playerFrames?.length ?? 0) <= 1}
+                                                    >
+                                                        <option value="1">x1</option>
+                                                        <option value="2">x2</option>
+                                                        <option value="4">x4</option>
+                                                        <option value="8">x8</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            {playerError ? <div className="error">{playerError}</div> : null}
+                                            {playerLoading ? <div className="android-muted">Chargement des frames…</div> : null}
+
+                                            {playerFrames?.length ? (
+                                                <>
+                                                    <img
+                                                        className="android-screenshot"
+                                                        src={playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url}
+                                                        alt="Player frame"
+                                                        loading="eager"
+                                                    />
+                                                    <input
+                                                        className="android-player-scrub"
+                                                        type="range"
+                                                        min={0}
+                                                        max={Math.max(0, playerFrames.length - 1)}
+                                                        value={Math.min(playerIndex, playerFrames.length - 1)}
+                                                        onChange={(e) => {
+                                                            stopPlayer();
+                                                            setPlayerIndex(Number(e.target.value));
+                                                        }}
+                                                    />
+                                                    <div className="android-screenshot-meta">
+                                                        <span className="android-mono">
+                                                            {playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.name || '—'}
+                                                        </span>
+                                                        {playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url ? (
+                                                            <a
+                                                                className="android-muted"
+                                                                href={playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                ouvrir
+                                                            </a>
+                                                        ) : null}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="android-muted">
+                                                    {playerDay && playerHour !== null
+                                                        ? 'Aucune frame sur cette tranche horaire (ou scan limité).'
+                                                        : 'Choisis une tranche horaire dans Historic → Screen activity.'}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : screenshot?.url ? (
                                         <>
                                             <img
                                                 className="android-screenshot"

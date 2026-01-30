@@ -234,6 +234,54 @@
     overflow-y: auto;
 }
 
+.android-hours-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.android-hour-card {
+    text-align: left;
+    border: 1px solid #1f1f1f;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: 10px 10px;
+    cursor: pointer;
+    color: inherit;
+}
+
+.android-hour-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.android-hour-title {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 13px;
+    color: #e0e0e0;
+    margin-bottom: 2px;
+}
+
+.android-player {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.android-player-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.android-player-scrub {
+    width: 100%;
+}
+
 .android-list-item {
     border: 1px solid #1f1f1f;
     background: rgba(255, 255, 255, 0.02);
@@ -340,6 +388,10 @@
 
     .android-interaction-grid {
         grid-template-columns: 1fr;
+    }
+
+    .android-hours-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
