@@ -101,7 +101,7 @@ export default function AndroidView() {
     const [playerError, setPlayerError] = useState(null);
     const [playerIndex, setPlayerIndex] = useState(0);
     const [playerPlaying, setPlayerPlaying] = useState(false);
-    const [playerSpeed, setPlayerSpeed] = useState(2); // x1,x2,x4,x8
+    const [playerSpeed, setPlayerSpeed] = useState(1); // x1,x2,x4,x8
     const playerTimerRef = useRef(null);
 
     const PlayerIcon = ({ name }) => {
@@ -263,7 +263,7 @@ export default function AndroidView() {
         setPlayerLoading(false);
         setPlayerError(null);
         setPlayerIndex(0);
-        setPlayerSpeed(2);
+        setPlayerSpeed(1);
     }, [stopPlayer]);
 
     useEffect(() => {
