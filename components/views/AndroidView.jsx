@@ -104,6 +104,54 @@ export default function AndroidView() {
     const [playerSpeed, setPlayerSpeed] = useState(2); // x1,x2,x4,x8
     const playerTimerRef = useRef(null);
 
+    const PlayerIcon = ({ name }) => {
+        const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' };
+        const stroke = { stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
+        if (name === 'play') {
+            return (
+                <svg {...common} aria-hidden="true">
+                    <path d="M8 5l11 7-11 7V5z" fill="currentColor" />
+                </svg>
+            );
+        }
+        if (name === 'pause') {
+            return (
+                <svg {...common} aria-hidden="true">
+                    <path d="M7 5h3v14H7V5z" fill="currentColor" />
+                    <path d="M14 5h3v14h-3V5z" fill="currentColor" />
+                </svg>
+            );
+        }
+        if (name === 'rewind10') {
+            return (
+                <svg {...common} aria-hidden="true">
+                    <path {...stroke} d="M12 8V4l-4 4 4 4V8z" />
+                    <path {...stroke} d="M12 4a8 8 0 1 1-7.2 4.5" />
+                    <path {...stroke} d="M14.5 14.5h-2.3l1.6-2.2c.4-.6.7-1.1.7-1.7 0-.8-.6-1.4-1.4-1.4-.8 0-1.3.5-1.5 1.3" />
+                </svg>
+            );
+        }
+        if (name === 'forward10') {
+            return (
+                <svg {...common} aria-hidden="true">
+                    <path {...stroke} d="M12 8V4l4 4-4 4V8z" />
+                    <path {...stroke} d="M12 4a8 8 0 1 0 7.2 4.5" />
+                    <path {...stroke} d="M9.5 14.5h-2.3l1.6-2.2c.4-.6.7-1.1.7-1.7 0-.8-.6-1.4-1.4-1.4-.8 0-1.3.5-1.5 1.3" />
+                </svg>
+            );
+        }
+        if (name === 'external') {
+            return (
+                <svg {...common} aria-hidden="true">
+                    <path {...stroke} d="M14 3h7v7" />
+                    <path {...stroke} d="M10 14L21 3" />
+                    <path {...stroke} d="M21 14v7H3V3h7" />
+                </svg>
+            );
+        }
+        return null;
+    };
+
     const [tapX, setTapX] = useState('');
     const [tapY, setTapY] = useState('');
     const [longPressDuration, setLongPressDuration] = useState('700');
@@ -1098,104 +1146,108 @@ export default function AndroidView() {
                                 <div className="android-screenshot-wrap">
                                     {viewerMode === 'player' ? (
                                         <div className="android-player">
-                                            <div className="android-player-header">
-                                                <div>
-                                                    <div className="android-muted">
-                                                        {playerDay && playerHour !== null
-                                                            ? `Screen activity • ${playerDay} • ${pad2(playerHour)}:00`
-                                                            : 'Screen activity • sélectionne une tranche horaire'}
-                                                    </div>
-                                                    {playerFrames?.length ? (
-                                                        <div className="android-mono">
-                                                            {playerFrames.length} frame(s) • {playerIndex + 1}/{playerFrames.length}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-                                                <div className="android-actions">
-                                                    <button
-                                                        type="button"
-                                                        className="conversions-pagination-btn"
-                                                        disabled={playerLoading || !playerFrames?.length}
-                                                        onClick={() => {
-                                                            if (!playerFrames?.length) return;
-                                                            setPlayerIndex((i) => Math.max(0, i - 10));
-                                                            stopPlayer();
-                                                        }}
-                                                    >
-                                                        « -10
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="conversions-pagination-btn"
-                                                        disabled={playerLoading || (playerFrames?.length ?? 0) <= 1}
-                                                        onClick={() => setPlayerPlaying((v) => !v)}
-                                                    >
-                                                        {playerPlaying ? 'Pause' : 'Play'}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="conversions-pagination-btn"
-                                                        disabled={playerLoading || !playerFrames?.length}
-                                                        onClick={() => {
-                                                            if (!playerFrames?.length) return;
-                                                            setPlayerIndex((i) => Math.min(playerFrames.length - 1, i + 10));
-                                                            stopPlayer();
-                                                        }}
-                                                    >
-                                                        +10 »
-                                                    </button>
-                                                    <select
-                                                        aria-label="Vitesse"
-                                                        value={String(playerSpeed)}
-                                                        onChange={(e) => setPlayerSpeed(Number(e.target.value))}
-                                                        disabled={playerLoading || (playerFrames?.length ?? 0) <= 1}
-                                                    >
-                                                        <option value="1">x1</option>
-                                                        <option value="2">x2</option>
-                                                        <option value="4">x4</option>
-                                                        <option value="8">x8</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
                                             {playerError ? <div className="error">{playerError}</div> : null}
                                             {playerLoading ? <div className="android-muted">Chargement des frames…</div> : null}
 
                                             {playerFrames?.length ? (
-                                                <>
+                                                <div className="android-player-surface">
+                                                    <button
+                                                        type="button"
+                                                        className="android-player-clicklayer"
+                                                        aria-label={playerPlaying ? 'Pause' : 'Play'}
+                                                        onClick={() => {
+                                                            if ((playerFrames?.length ?? 0) <= 1) return;
+                                                            setPlayerPlaying((v) => !v);
+                                                        }}
+                                                    >
+                                                        {/* overlay is handled by CSS */}
+                                                    </button>
+
                                                     <img
-                                                        className="android-screenshot"
+                                                        className="android-screenshot android-player-frame"
                                                         src={playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url}
                                                         alt="Player frame"
                                                         loading="eager"
                                                     />
-                                                    <input
-                                                        className="android-player-scrub"
-                                                        type="range"
-                                                        min={0}
-                                                        max={Math.max(0, playerFrames.length - 1)}
-                                                        value={Math.min(playerIndex, playerFrames.length - 1)}
-                                                        onChange={(e) => {
-                                                            stopPlayer();
-                                                            setPlayerIndex(Number(e.target.value));
-                                                        }}
-                                                    />
-                                                    <div className="android-screenshot-meta">
-                                                        <span className="android-mono">
-                                                            {playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.name || '—'}
-                                                        </span>
-                                                        {playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url ? (
-                                                            <a
-                                                                className="android-muted"
-                                                                href={playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url}
-                                                                target="_blank"
-                                                                rel="noreferrer"
+
+                                                    <div className="android-player-overlay" aria-hidden={playerLoading ? 'true' : 'false'}>
+                                                        <input
+                                                            className="android-player-progress"
+                                                            type="range"
+                                                            min={0}
+                                                            max={Math.max(0, playerFrames.length - 1)}
+                                                            value={Math.min(playerIndex, playerFrames.length - 1)}
+                                                            onChange={(e) => {
+                                                                stopPlayer();
+                                                                setPlayerIndex(Number(e.target.value));
+                                                            }}
+                                                        />
+
+                                                        <div className="android-player-controls">
+                                                            <button
+                                                                type="button"
+                                                                className="android-player-btn"
+                                                                disabled={playerLoading || !playerFrames?.length}
+                                                                aria-label="Reculer de 10"
+                                                                onClick={() => {
+                                                                    if (!playerFrames?.length) return;
+                                                                    setPlayerIndex((i) => Math.max(0, i - 10));
+                                                                    stopPlayer();
+                                                                }}
                                                             >
-                                                                ouvrir
-                                                            </a>
-                                                        ) : null}
+                                                                <PlayerIcon name="rewind10" />
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                className="android-player-btn android-player-btn--primary"
+                                                                disabled={playerLoading || (playerFrames?.length ?? 0) <= 1}
+                                                                aria-label={playerPlaying ? 'Pause' : 'Play'}
+                                                                onClick={() => setPlayerPlaying((v) => !v)}
+                                                            >
+                                                                <PlayerIcon name={playerPlaying ? 'pause' : 'play'} />
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                className="android-player-btn"
+                                                                disabled={playerLoading || !playerFrames?.length}
+                                                                aria-label="Avancer de 10"
+                                                                onClick={() => {
+                                                                    if (!playerFrames?.length) return;
+                                                                    setPlayerIndex((i) => Math.min(playerFrames.length - 1, i + 10));
+                                                                    stopPlayer();
+                                                                }}
+                                                            >
+                                                                <PlayerIcon name="forward10" />
+                                                            </button>
+
+                                                            <div className="android-player-spacer" />
+
+                                                            <button
+                                                                type="button"
+                                                                className="android-player-pill"
+                                                                disabled={playerLoading || (playerFrames?.length ?? 0) <= 1}
+                                                                aria-label="Changer la vitesse"
+                                                                onClick={() => setPlayerSpeed((v) => (v === 1 ? 2 : v === 2 ? 4 : v === 4 ? 8 : 1))}
+                                                            >
+                                                                x{playerSpeed}
+                                                            </button>
+
+                                                            {playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url ? (
+                                                                <a
+                                                                    className="android-player-btn android-player-link"
+                                                                    href={playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    aria-label="Ouvrir l’image dans un nouvel onglet"
+                                                                >
+                                                                    <PlayerIcon name="external" />
+                                                                </a>
+                                                            ) : null}
+                                                        </div>
                                                     </div>
-                                                </>
+                                                </div>
                                             ) : (
                                                 <div className="android-muted">
                                                     {playerDay && playerHour !== null
