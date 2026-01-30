@@ -30,29 +30,36 @@ async function findLatestScreenshotPath({ supabase, bucket, deviceId }) {
   if (dayFolders.length === 0) return null;
 
   dayFolders.sort((a, b) => b.parsed.getTime() - a.parsed.getTime());
-  const latestDay = dayFolders[0].name;
 
-  const dayPath = `${root}/${latestDay}`;
-  const { data: files, error: filesErr } = await supabase.storage.from(bucket).list(dayPath, {
-    limit: 500,
-    offset: 0,
-    sortBy: { column: 'name', order: 'desc' }
-  });
-  if (filesErr) throw filesErr;
+  // Important: on peut pré-créer un dossier "demain" via un marqueur (_folder.txt).
+  // Dans ce cas, le "dernier jour" par date n'a pas forcément encore de .webp.
+  // On parcourt donc les jours (du plus récent au plus ancien) et on prend le premier
+  // qui contient au moins un .webp.
+  for (const day of dayFolders) {
+    const dayPath = `${root}/${day.name}`;
+    const { data: files, error: filesErr } = await supabase.storage.from(bucket).list(dayPath, {
+      limit: 500,
+      offset: 0,
+      sortBy: { column: 'name', order: 'desc' }
+    });
+    if (filesErr) throw filesErr;
 
-  const candidates = (files || [])
-    .filter((it) => typeof it?.name === 'string' && it.name.toLowerCase().endsWith('.webp'))
-    .sort((a, b) => String(b.name).localeCompare(String(a.name)));
+    const candidates = (files || [])
+      .filter((it) => typeof it?.name === 'string' && it.name.toLowerCase().endsWith('.webp'))
+      .sort((a, b) => String(b.name).localeCompare(String(a.name)));
 
-  if (candidates.length === 0) return null;
+    if (candidates.length === 0) continue;
 
-  const latestFile = candidates[0];
-  return {
-    objectPath: `${dayPath}/${latestFile.name}`,
-    objectName: latestFile.name,
-    dayFolder: latestDay,
-    updatedAt: latestFile.updated_at ?? null
-  };
+    const latestFile = candidates[0];
+    return {
+      objectPath: `${dayPath}/${latestFile.name}`,
+      objectName: latestFile.name,
+      dayFolder: day.name,
+      updatedAt: latestFile.updated_at ?? null
+    };
+  }
+
+  return null;
 }
 
 export default async function handler(req, res) {
