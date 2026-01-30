@@ -460,7 +460,7 @@ export default function AnalyticsView() {
                         <header className="analytics-card-header">
                             <div>
                                 <div className="analytics-card-title analytics-card-title--pipeline">
-                                     Events pipeline
+                                     Events pipelines
                                 </div>
                             </div>
                         </header>
