@@ -21,10 +21,10 @@
 }
 
 .period-filter {
-    padding: 6px 12px;
+    padding: 8px 12px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 400;
     font-family: inherit;
     transition: all 0.2s ease;
@@ -172,7 +172,7 @@
 }
 
 .conversions-pagination-btn {
-    padding: 6px 10px;
+    padding: 8px 10px;
     cursor: pointer;
     font-size: 12px;
 }

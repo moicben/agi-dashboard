@@ -3,7 +3,7 @@
 .android-container {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
     min-height: 0;
 }
 
@@ -65,9 +65,10 @@
 .android-grid {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 16px;
+    gap: 20px;
     min-height: 0;
     align-items: start;
+    height: 100vh;
 }
 
 .android-card--visualization {
@@ -104,10 +105,14 @@
 
 .android-interaction-grid {
     display: grid;
-    grid-template-columns: 1fr 420px;
+    grid-template-columns: 1fr 50%;
     gap: 16px;
     min-height: 0;
     align-items: start;
+}
+
+.android-interaction-left {
+    width: fit-content;
 }
 
 .android-interaction-right {
@@ -131,8 +136,10 @@
 .android-tabs {
     display: flex;
     gap: 8px;
-    overflow-x: auto;
+    overflow: hidden;
     padding-bottom: 2px;
+    box-sizing: content-box;
+    flex-wrap: wrap;
 }
 
 .android-tab {
@@ -157,6 +164,11 @@
     gap: 10px;
 }
 
+.android-field {
+    display: flex;
+    flex-wrap: wrap;
+}
+
 .android-field label {
     display: block;
     color: #bdbdbd;
@@ -171,7 +183,7 @@
     background: var(--control-bg);
     border: var(--control-border);
     color: var(--text-1);
-    padding: 6px 12px;
+    padding: 8px 12px;
     border-radius: 6px;
     font-size: 13px;
     font-weight: 400;
@@ -216,6 +228,8 @@
     flex-direction: column;
     gap: 8px;
     min-height: 0;
+    max-height: calc(100vh - 230px);
+    overflow-y: auto;
 }
 
 .android-list-item {
@@ -276,7 +290,7 @@
     flex-direction: column;
     gap: 10px;
     min-height: 0;
-    height: 100%;
+    height: 80%;
     align-items: center;
     justify-content: center;
 }
@@ -287,8 +301,7 @@
     background: #000;
     max-height: none;
     width: auto;
-    max-width: 100%;
-    height: auto;
+    height: calc(100vh - 216px);
     object-fit: contain;
     display: block;
 }

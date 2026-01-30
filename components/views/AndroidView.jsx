@@ -433,7 +433,7 @@ export default function AndroidView() {
                             className="conversions-pagination-btn"
                             onClick={() => loadDevices().catch(() => {})}
                         >
-                            Rafraîchir devices
+                            Refresh devices
                         </button>
                     </div>
                 </div>
@@ -449,7 +449,7 @@ export default function AndroidView() {
                         <section className="android-card">
                             <header className="android-card-header">
                                 <div>
-                                    <div className="android-card-title">Interaction / Remote commands</div>
+                                    <div className="android-card-title">Interactions</div>
                                 </div>
                                 <div className="android-actions">
                                     <button
@@ -697,14 +697,14 @@ export default function AndroidView() {
                                                 >
                                                     {sending ? 'Envoi…' : 'Envoyer'}
                                                 </button>
-                                                <button
+                                                {/* <button
                                                     type="button"
                                                     className="conversions-pagination-btn"
                                                     disabled={!selectedDeviceId || sending}
                                                     onClick={() => loadDeviceData().catch(() => {})}
                                                 >
                                                     Rafraîchir
-                                                </button>
+                                                </button> */}
                                             </div>
 
                                             {sendError ? <div className="error">{sendError}</div> : null}
@@ -796,17 +796,17 @@ export default function AndroidView() {
                         <section className="android-card android-card--visualization">
                             <header className="android-card-header">
                                 <div>
-                                    <div className="android-card-title">Visualisation (dernier screenshot)</div>
+                                    <div className="android-card-title">Viewer</div>
                                 </div>
                                 <div className="android-actions">
-                                    <button
+                                    {/* <button
                                         type="button"
                                         className="conversions-pagination-btn"
                                         disabled={!selectedDeviceId}
                                         onClick={() => refreshScreenshot().catch(() => {})}
                                     >
                                         Rafraîchir
-                                    </button>
+                                    </button> */}
                                     <button
                                         type="button"
                                         className="conversions-pagination-btn"
@@ -833,9 +833,9 @@ export default function AndroidView() {
                                                 <span className="android-mono">
                                                     {screenshot?.name || screenshot?.path || '—'}
                                                 </span>
-                                                <span>
+                                                {/* <span>
                                                     {screenshot?.updatedAt ? `maj ${fmtDate(screenshot.updatedAt)}` : ''}
-                                                </span>
+                                                </span> */}
                                                 {screenshot?.url ? (
                                                     <a
                                                         className="android-muted"
