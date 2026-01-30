@@ -64,6 +64,14 @@ function pad2(n) {
     return String(Math.max(0, Math.min(99, Math.trunc(v)))).padStart(2, '0');
 }
 
+function fmtSpeed(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '1';
+    if (n === 0.25) return '0,25';
+    if (n === 0.5) return '0,5';
+    return String(n);
+}
+
 export default function AndroidView() {
     const [devices, setDevices] = useState([]);
     const [selectedDeviceId, setSelectedDeviceId] = useState('');
@@ -1229,9 +1237,16 @@ export default function AndroidView() {
                                                                 className="android-player-pill"
                                                                 disabled={playerLoading || (playerFrames?.length ?? 0) <= 1}
                                                                 aria-label="Changer la vitesse"
-                                                                onClick={() => setPlayerSpeed((v) => (v === 1 ? 2 : v === 2 ? 4 : v === 4 ? 8 : 1))}
+                                                                onClick={() =>
+                                                                    setPlayerSpeed((v) => {
+                                                                        const speeds = [0.25, 0.5, 1, 2, 4, 8];
+                                                                        const idx = speeds.indexOf(Number(v));
+                                                                        const next = speeds[(idx >= 0 ? idx + 1 : 2) % speeds.length];
+                                                                        return next;
+                                                                    })
+                                                                }
                                                             >
-                                                                x{playerSpeed}
+                                                                x{fmtSpeed(playerSpeed)}
                                                             </button>
 
                                                             {playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url ? (
