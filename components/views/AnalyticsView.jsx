@@ -14,6 +14,14 @@ const PERIOD_OPTIONS = [
     { value: 'last_week', label: 'Last week' },
 ];
 
+const LAST_EVENTS_TYPE_OPTIONS = [
+    { value: 'all', label: 'All events' },
+    { value: 'visit', label: 'visit' },
+    { value: 'login', label: 'login' },
+    { value: 'adb_pair', label: 'adb_pair' },
+    { value: 'adb_connect', label: 'adb_connect' },
+];
+
 function getPeriodRange(periodValue) {
     if (!periodValue || periodValue === 'all') return { startDate: null, endDate: null };
     const endDate = new Date();
@@ -56,6 +64,7 @@ export default function AnalyticsView() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedPeriod, setSelectedPeriod] = useState('today');
+    const [lastEventsType, setLastEventsType] = useState('all');
     const [conversionsRows, setConversionsRows] = useState([]);
     const [conversionsPage, setConversionsPage] = useState(0);
     const [conversionsTotal, setConversionsTotal] = useState(null);
@@ -411,6 +420,15 @@ export default function AnalyticsView() {
             ? pageToLabel < conversionsTotal
             : conversionsRows.length === pageSize);
 
+    const filteredConversionsRows = useMemo(() => {
+        const wanted = String(lastEventsType ?? 'all').trim().toLowerCase();
+        if (!wanted || wanted === 'all') return conversionsRows;
+        return conversionsRows.filter((row) => {
+            const t = String(row?.eventType ?? '').trim().toLowerCase();
+            return t === wanted;
+        });
+    }, [conversionsRows, lastEventsType]);
+
     const formatEventType = (t) => {
         const s = String(t ?? '').trim();
         if (!s) return '—';
@@ -556,6 +574,18 @@ export default function AnalyticsView() {
                             <div className="analytics-card-title">Last events</div>
                         </div>
                         <div className="conversions-pagination">
+                            <select
+                                value={lastEventsType}
+                                onChange={(e) => setLastEventsType(e.target.value)}
+                                className="period-filter"
+                                aria-label="Filtrer les events par type"
+                            >
+                                {LAST_EVENTS_TYPE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
                             <span className="conversions-pagination-meta">
                                 {conversionsLoading
                                     ? 'Chargement…'
@@ -600,14 +630,16 @@ export default function AnalyticsView() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {conversionsRows.length === 0 && !conversionsLoading ? (
+                                    {filteredConversionsRows.length === 0 && !conversionsLoading ? (
                                         <tr>
                                             <td colSpan={5} className="conversions-empty">
-                                                Aucune conversion sur la période sélectionnée.
+                                                {lastEventsType === 'all'
+                                                    ? 'Aucun event sur la période sélectionnée.'
+                                                    : `Aucun event "${lastEventsType}" sur la période sélectionnée.`}
                                             </td>
                                         </tr>
                                     ) : (
-                                        conversionsRows.map((row) => {
+                                        filteredConversionsRows.map((row) => {
                                             const additional = row?.contactAdditionalData ?? null;
                                             const details = row?.eventDetails ?? null;
                                             const combined = details ? { ...details, contact: additional } : additional;
