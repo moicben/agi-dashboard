@@ -157,6 +157,15 @@ export default function AndroidView() {
                 </svg>
             );
         }
+        if (name === 'replay') {
+            // Icône minimaliste “refresh/redo”
+            return (
+                <svg {...common} aria-hidden="true">
+                    <path {...stroke} d="M20 11a8 8 0 1 0-2.3 5.7" />
+                    <path {...stroke} d="M20 4v7h-7" />
+                </svg>
+            );
+        }
         return null;
     };
 
@@ -607,6 +616,23 @@ export default function AndroidView() {
             }
         },
         [loadDeviceData, selectedDeviceId]
+    );
+
+    const replayCommand = useCallback(
+        async (cmd) => {
+            const type = safeStr(cmd?.command_type);
+            if (!type) return;
+            const payload =
+                cmd?.payload && typeof cmd.payload === 'object' && !Array.isArray(cmd.payload) ? cmd.payload : {};
+
+            await sendQuick(type, payload);
+
+            // Bonus: si TAKE_SCREENSHOT, refresh screenshot après un petit délai (comme dans send()).
+            if (type === 'global_action' && payload?.action === 'TAKE_SCREENSHOT') {
+                setTimeout(() => refreshScreenshot().catch(() => {}), 1200);
+            }
+        },
+        [refreshScreenshot, sendQuick]
     );
 
     const onSelectDevice = (id) => {
@@ -1078,9 +1104,21 @@ export default function AndroidView() {
                                                         <div key={c.id} className="android-list-item">
                                                             <div className="android-list-item-head">
                                                                 <span className="android-mono">{c.command_type}</span>
-                                                                <span className={`android-badge ${c.status || ''}`}>
-                                                                    {c.status || '—'}
-                                                                </span>
+                                                                <div className="android-list-item-actions">
+                                                                    <button
+                                                                        type="button"
+                                                                        className="android-icon-btn"
+                                                                        title="Rejouer la commande"
+                                                                        aria-label="Rejouer la commande"
+                                                                        disabled={sending || !selectedDeviceId}
+                                                                        onClick={() => replayCommand(c)}
+                                                                    >
+                                                                        <PlayerIcon name="replay" />
+                                                                    </button>
+                                                                    <span className={`android-badge ${c.status || ''}`}>
+                                                                        {c.status || '—'}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                             <div className="android-muted">
                                                                 {fmtDate(c.created_at)}

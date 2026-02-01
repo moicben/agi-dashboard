@@ -443,6 +443,46 @@
     gap: 10px;
 }
 
+.android-list-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.android-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    color: #dcdcdc;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.android-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.android-icon-btn:active {
+    transform: translateY(1px);
+}
+
+.android-icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.android-icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
 .android-mono {
     font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
     font-size: 12px;
