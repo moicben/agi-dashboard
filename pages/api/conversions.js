@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServerClient, sendEnvError } from '../../lib/supabaseServer.js';
 
 const PAGE_SIZE = 50;
 
@@ -10,23 +10,13 @@ function getSafePage(value) {
 
 export default async function handler(req, res) {
   try {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      const missingVars = [];
-      if (!SUPABASE_URL) missingVars.push('SUPABASE_URL');
-      if (!SUPABASE_ANON_KEY) missingVars.push('SUPABASE_ANON_KEY');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.status(500).json({
-        error: 'Configuration incomplète',
-        message: `Variables d'environnement manquantes: ${missingVars.join(', ')}. Veuillez les ajouter dans votre fichier .env.`,
-        missingVariables: missingVars
-      });
+    let supabase;
+    try {
+      supabase = getSupabaseServerClient();
+    } catch (e) {
+      sendEnvError(res, e);
       return;
     }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const page = getSafePage(req.query.page);
     const from = page * PAGE_SIZE;
