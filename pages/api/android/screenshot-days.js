@@ -27,9 +27,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    const bucket = 'android';
+    const bucket = 'screenshots';
     const supabase = getSupabaseAndroidServerClient({ preferServiceRole: true });
-    const root = `${deviceId}/screenshots`;
+    const root = `${deviceId}`;
 
     const { data: days, error: daysErr } = await supabase.storage.from(bucket).list(root, {
       limit: 200,

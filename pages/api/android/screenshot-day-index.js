@@ -66,9 +66,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    const bucket = 'android';
+    const bucket = 'screenshots';
     const supabase = getSupabaseAndroidServerClient({ preferServiceRole: true });
-    const dayPath = `${deviceId}/screenshots/${day}`;
+    const dayPath = `${deviceId}/${day}`;
 
     const { files, truncated } = await listAllWebpFiles({ supabase, bucket, dayPath, maxFiles });
 

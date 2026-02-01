@@ -99,9 +99,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    const bucket = 'android';
+    const bucket = 'screenshots';
     const supabase = getSupabaseAndroidServerClient({ preferServiceRole: true });
-    const dayPath = `${deviceId}/screenshots/${day}`;
+    const dayPath = `${deviceId}/${day}`;
 
     // On scanne jusqu'à N entrées du jour (sécurité perf)
     const maxScanFiles = 20000;

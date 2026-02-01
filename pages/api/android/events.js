@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
     const supabase = getSupabaseAndroidServerClient();
     const { data, error } = await supabase
-      .from('android_events')
+      .from('events')
       .select('id, created_at, device_id, package_name, event_type, event_value')
       .eq('device_id', deviceId)
       .order('created_at', { ascending: false })

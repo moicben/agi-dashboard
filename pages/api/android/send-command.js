@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 
     const supabase = getSupabaseAndroidServerClient();
     const { data, error } = await supabase
-      .from('android_commands')
+      .from('commands')
       .insert({
         device_id: deviceId,
         command_type: commandType,

@@ -14,7 +14,10 @@ function parseFrDayFolder(name) {
 }
 
 async function findLatestScreenshotPath({ supabase, bucket, deviceId }) {
-  const root = `${deviceId}/screenshots`;
+  // Android APK uploads to bucket "screenshots" with paths:
+  //   <deviceId>/<dd-MM-yyyy>/<HH-mm-ss>.webp
+  // plus marker files like <deviceId>/_device.txt and <deviceId>/<dd-MM-yyyy>/_folder.txt
+  const root = `${deviceId}`;
 
   const { data: days, error: daysErr } = await supabase.storage.from(bucket).list(root, {
     limit: 200,
@@ -76,7 +79,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const bucket = 'android';
+    const bucket = 'screenshots';
     const supabase = getSupabaseAndroidServerClient({ preferServiceRole: true });
 
     const latest = await findLatestScreenshotPath({ supabase, bucket, deviceId });
