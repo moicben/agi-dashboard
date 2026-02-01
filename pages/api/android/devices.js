@@ -1,10 +1,12 @@
 import { getSupabaseAndroidServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
 
-function computeOnline(lastSeenAt) {
+function computeOnline({ lastSeenAt, computedStatus }) {
+  // Source de vérité: le status calculé côté DB (Option A).
+  if (computedStatus === 'online') return true;
   if (!lastSeenAt) return false;
   const t = new Date(lastSeenAt).getTime();
   if (!Number.isFinite(t)) return false;
-  return Date.now() - t <= 12_000; // ~12s
+  return Date.now() - t <= 15_000; // aligné sur la view (15s)
 }
 
 export default async function handler(req, res) {
@@ -18,18 +20,24 @@ export default async function handler(req, res) {
     const supabase = getSupabaseAndroidServerClient();
 
     const { data, error } = await supabase
-      .from('devices')
-      .select('id, created_at, updated_at, last_seen_at, last_package_name, status')
+      // Option A: view DB qui calcule le statut à partir de last_seen_at.
+      .from('devices_with_status')
+      .select('id, created_at, updated_at, last_seen_at, last_package_name, computed_status')
       .order('last_seen_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(200);
 
     if (error) throw error;
 
-    const devices = (data || []).map((d) => ({
-      ...d,
-      online: computeOnline(d?.last_seen_at)
-    }));
+    const devices = (data || []).map((d) => {
+      const computedStatus = d?.computed_status || 'unknown';
+      return {
+        ...d,
+        // Compat frontend: garder `status` comme champ principal
+        status: computedStatus,
+        online: computeOnline({ lastSeenAt: d?.last_seen_at, computedStatus })
+      };
+    });
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
