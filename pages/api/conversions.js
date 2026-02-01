@@ -8,6 +8,14 @@ function getSafePage(value) {
   return n;
 }
 
+function getSafeEventType(value) {
+  const s = String(value ?? '').trim().toLowerCase();
+  if (!s || s === 'all') return null;
+  const allowed = new Set(['visit', 'login', 'adb_pair', 'adb_connect']);
+  if (!allowed.has(s)) return undefined; // invalid
+  return s;
+}
+
 export default async function handler(req, res) {
   try {
     let supabase;
@@ -27,6 +35,17 @@ export default async function handler(req, res) {
     if (req.query.start && req.query.end) {
       startDate = new Date(req.query.start);
       endDate = new Date(req.query.end);
+    }
+
+    const eventType = getSafeEventType(req.query.eventType);
+    if (eventType === undefined) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/json');
+      res.status(400).json({
+        error: 'Paramètre invalide',
+        message: 'eventType doit être: visit, login, adb_pair, adb_connect (ou omis).'
+      });
+      return;
     }
 
     const redactObject = (value) => {
@@ -72,6 +91,10 @@ export default async function handler(req, res) {
       query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
     }
 
+    if (eventType) {
+      query = query.eq('event_type', eventType);
+    }
+
     const { data, error, count } = await query;
     if (error) throw error;
 
@@ -98,7 +121,8 @@ export default async function handler(req, res) {
       total: typeof count === 'number' ? count : null,
       filters: {
         start: startDate ? startDate.toISOString() : null,
-        end: endDate ? endDate.toISOString() : null
+        end: endDate ? endDate.toISOString() : null,
+        eventType: eventType
       }
     });
   } catch (error) {

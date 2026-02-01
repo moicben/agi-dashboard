@@ -70,6 +70,10 @@
     grid-column: 1 / -1;
 }
 
+.analytics-card--lastEvents {
+    margin-bottom: 48px;
+}
+
 .analytics-card {
     overflow: hidden;
 }
@@ -83,6 +87,34 @@
 
 .analytics-card-title {
     margin: 0;
+}
+
+.last-events-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.last-events-type-filters {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.last-events-type-btn {
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1;
+    border-radius: 999px;
+    opacity: 0.9;
+}
+
+.last-events-type-btn--active {
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .analytics-card-title--pipeline {

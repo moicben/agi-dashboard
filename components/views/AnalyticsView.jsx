@@ -98,13 +98,18 @@ export default function AnalyticsView() {
         setConversionsPage(0);
     }, [selectedPeriod]);
 
+    // Reset pagination quand le filtre "Last events" change
+    useEffect(() => {
+        setConversionsPage(0);
+    }, [lastEventsType]);
+
     useEffect(() => {
         const loadConversions = async () => {
             setConversionsLoading(true);
             setConversionsError(null);
             try {
                 const { startDate, endDate } = getPeriodRange(selectedPeriod);
-                const data = await fetchConversions(startDate, endDate, null, conversionsPage);
+                const data = await fetchConversions(startDate, endDate, null, conversionsPage, lastEventsType);
                 const rows = Array.isArray(data?.items) ? data.items : [];
                 setConversionsRows(rows);
                 setConversionsTotal(typeof data?.total === 'number' ? data.total : null);
@@ -117,7 +122,7 @@ export default function AnalyticsView() {
         };
 
         loadConversions();
-    }, [selectedPeriod, conversionsPage]);
+    }, [selectedPeriod, conversionsPage, lastEventsType]);
 
     useEffect(() => {
         const loadBestQueries = async () => {
@@ -420,14 +425,24 @@ export default function AnalyticsView() {
             ? pageToLabel < conversionsTotal
             : conversionsRows.length === pageSize);
 
-    const filteredConversionsRows = useMemo(() => {
-        const wanted = String(lastEventsType ?? 'all').trim().toLowerCase();
-        if (!wanted || wanted === 'all') return conversionsRows;
-        return conversionsRows.filter((row) => {
-            const t = String(row?.eventType ?? '').trim().toLowerCase();
-            return t === wanted;
-        });
-    }, [conversionsRows, lastEventsType]);
+    // Déduplication par contact (dernier event par contactId sur la page courante)
+    // Note: on conserve les events sans contactId (ils sont considérés uniques).
+    const displayConversionsRows = (() => {
+        const seen = new Set();
+        const out = [];
+        for (const row of conversionsRows) {
+            const cid = row?.contactId;
+            if (cid === null || cid === undefined || cid === '') {
+                out.push(row);
+                continue;
+            }
+            const key = String(cid);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(row);
+        }
+        return out;
+    })();
 
     const formatEventType = (t) => {
         const s = String(t ?? '').trim();
@@ -568,30 +583,40 @@ export default function AnalyticsView() {
                     </section>   
                 </div>   
 
-                <section className="analytics-card analytics-card--full">
+                <section className="analytics-card analytics-card--full analytics-card--lastEvents">
                     <header className="analytics-card-header">
-                        <div>
+                        <div className="last-events-header-left">
                             <div className="analytics-card-title">Last events</div>
+                            <div className="last-events-type-filters" aria-label="Filtrer les events par type">
+                                {LAST_EVENTS_TYPE_OPTIONS.map((opt) => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setLastEventsType(opt.value)}
+                                        className={[
+                                            'last-events-type-btn',
+                                            'conversions-pagination-btn',
+                                            opt.value === lastEventsType ? 'last-events-type-btn--active' : ''
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' ')}
+                                        aria-pressed={opt.value === lastEventsType}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div className="conversions-pagination">
-                            <select
-                                value={lastEventsType}
-                                onChange={(e) => setLastEventsType(e.target.value)}
-                                className="period-filter"
-                                aria-label="Filtrer les events par type"
-                            >
-                                {LAST_EVENTS_TYPE_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </option>
-                                ))}
-                            </select>
                             <span className="conversions-pagination-meta">
                                 {conversionsLoading
                                     ? 'Chargement…'
                                     : conversionsTotal === null
                                       ? `${pageFromLabel}–${pageToLabel}`
                                       : `${pageFromLabel}–${pageToLabel} sur ${conversionsTotal}`}
+                                {!conversionsLoading && conversionsRows.length > 0 && displayConversionsRows.length !== conversionsRows.length
+                                    ? ` • ${displayConversionsRows.length} contacts`
+                                    : ''}
                             </span>
                             <button
                                 className="conversions-pagination-btn"
@@ -630,7 +655,7 @@ export default function AnalyticsView() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredConversionsRows.length === 0 && !conversionsLoading ? (
+                                    {displayConversionsRows.length === 0 && !conversionsLoading ? (
                                         <tr>
                                             <td colSpan={5} className="conversions-empty">
                                                 {lastEventsType === 'all'
@@ -639,7 +664,7 @@ export default function AnalyticsView() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredConversionsRows.map((row) => {
+                                        displayConversionsRows.map((row) => {
                                             const additional = row?.contactAdditionalData ?? null;
                                             const details = row?.eventDetails ?? null;
                                             const combined = details ? { ...details, contact: additional } : additional;
