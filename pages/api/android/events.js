@@ -1,4 +1,4 @@
-import { getSupabaseServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
+import { getSupabaseAndroidServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
 
 export default async function handler(req, res) {
   try {
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const supabase = getSupabaseServerClient();
+    const supabase = getSupabaseAndroidServerClient();
     const { data, error } = await supabase
       .from('android_events')
       .select('id, created_at, device_id, package_name, event_type, event_value')

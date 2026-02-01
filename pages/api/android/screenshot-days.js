@@ -1,4 +1,4 @@
-import { getSupabaseServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
+import { getSupabaseAndroidServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
 
 function parseFrDayFolder(name) {
   // "dd-MM-yyyy"
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     }
 
     const bucket = 'android';
-    const supabase = getSupabaseServerClient({ preferServiceRole: true });
+    const supabase = getSupabaseAndroidServerClient({ preferServiceRole: true });
     const root = `${deviceId}/screenshots`;
 
     const { data: days, error: daysErr } = await supabase.storage.from(bucket).list(root, {

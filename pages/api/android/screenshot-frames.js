@@ -1,4 +1,4 @@
-import { getSupabaseServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
+import { getSupabaseAndroidServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
 
 function parseFrDayFolder(name) {
   const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(String(name || '').trim());
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
     }
 
     const bucket = 'android';
-    const supabase = getSupabaseServerClient({ preferServiceRole: true });
+    const supabase = getSupabaseAndroidServerClient({ preferServiceRole: true });
     const dayPath = `${deviceId}/screenshots/${day}`;
 
     // On scanne jusqu'à N entrées du jour (sécurité perf)

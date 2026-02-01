@@ -1,4 +1,4 @@
-import { getSupabaseServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
+import { getSupabaseAndroidServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
 
 function computeOnline(lastSeenAt) {
   if (!lastSeenAt) return false;
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const supabase = getSupabaseServerClient();
+    const supabase = getSupabaseAndroidServerClient();
 
     const { data, error } = await supabase
       .from('devices')

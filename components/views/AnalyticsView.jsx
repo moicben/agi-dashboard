@@ -548,7 +548,7 @@ export default function AnalyticsView() {
                             </div>
                         )}
                     </section>
-                </div> 
+                </div>   
 
                 <section className="analytics-card analytics-card--full">
                     <header className="analytics-card-header">

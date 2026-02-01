@@ -1,4 +1,4 @@
-import { getSupabaseServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
+import { getSupabaseAndroidServerClient, sendEnvError } from '../../../lib/supabaseServer.js';
 
 const ALLOWED_COMMANDS = new Set([
   'tap',
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const supabase = getSupabaseServerClient();
+    const supabase = getSupabaseAndroidServerClient();
     const { data, error } = await supabase
       .from('android_commands')
       .insert({
