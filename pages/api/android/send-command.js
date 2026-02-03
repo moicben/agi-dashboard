@@ -6,10 +6,15 @@ const ALLOWED_COMMANDS = new Set([
   'long_press',
   'swipe',
   'global_action',
-  'wake_lock',
   'click_node',
   'set_text',
-  'open_app'
+  'open_app',
+
+  // Extensions non-ADB (APK + accessibility/permissions)
+  'ping',
+  'wake_lock',
+  'keep_awake_activity',
+  'open_settings'
 ]);
 
 function isPlainObject(v) {

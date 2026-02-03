@@ -17,10 +17,13 @@ const COMMAND_TYPES = [
     { value: 'long_press', label: 'Long press' },
     { value: 'swipe', label: 'Swipe' },
     { value: 'global_action', label: 'Global action' },
-    { value: 'wake_lock', label: 'Wake lock' },
     { value: 'click_node', label: 'Click node (a11y)' },
     { value: 'set_text', label: 'Set text (a11y)' },
-    { value: 'open_app', label: 'Open app' }
+    { value: 'open_app', label: 'Open app' },
+    { value: 'ping', label: 'Ping (debug)' },
+    { value: 'wake_lock', label: 'Wake lock (power)' },
+    { value: 'keep_awake_activity', label: 'Keep screen on (activity)' },
+    { value: 'open_settings', label: 'Open Settings' }
 ];
 
 const GLOBAL_ACTIONS = [
@@ -32,6 +35,14 @@ const GLOBAL_ACTIONS = [
     'POWER_DIALOG',
     'LOCK_SCREEN',
     'TAKE_SCREENSHOT'
+];
+
+const SETTINGS_SCREENS = [
+    { value: 'APP_DETAILS', label: 'App details (this app)' },
+    { value: 'ACCESSIBILITY', label: 'Accessibility settings' },
+    { value: 'BATTERY_OPTIMIZATIONS', label: 'Battery optimizations' },
+    { value: 'OVERLAY', label: 'Overlay permission (draw over apps)' },
+    { value: 'WRITE_SETTINGS', label: 'Write settings permission' }
 ];
 
 function safeInt(v, fallback = 0) {
@@ -172,7 +183,6 @@ export default function AndroidView() {
 
     const [tapX, setTapX] = useState('');
     const [tapY, setTapY] = useState('');
-    const [wakeDuration, setWakeDuration] = useState('5000');
     const [longPressDuration, setLongPressDuration] = useState('700');
     const [swipeX1, setSwipeX1] = useState('');
     const [swipeY1, setSwipeY1] = useState('');
@@ -189,6 +199,14 @@ export default function AndroidView() {
     const [openComponent, setOpenComponent] = useState('');
     const [advancedPayload, setAdvancedPayload] = useState('');
     const [useAdvancedPayload, setUseAdvancedPayload] = useState(false);
+
+    // Extensions (non-ADB)
+    const [wakeLockAction, setWakeLockAction] = useState('acquire'); // acquire | release
+    const [wakeLockDuration, setWakeLockDuration] = useState('600000'); // ms
+    const [keepAwakeFinishAfter, setKeepAwakeFinishAfter] = useState('0'); // ms, 0=ne pas auto-fermer
+    const [keepAwakeTurnScreenOn, setKeepAwakeTurnScreenOn] = useState(true);
+    const [keepAwakeShowWhenLocked, setKeepAwakeShowWhenLocked] = useState(false);
+    const [settingsScreen, setSettingsScreen] = useState('APP_DETAILS');
 
     const devicesRefreshRef = useRef(null);
     const pollRef = useRef(null);
@@ -505,8 +523,6 @@ export default function AndroidView() {
                 };
             case 'global_action':
                 return { action: globalAction };
-            case 'wake_lock':
-                return { durationMs: safeInt(wakeDuration, 5000) };
             case 'click_node': {
                 const p = { value: safeStr(nodeValue), match: nodeMatch };
                 const ec = safeStr(ensureComponent);
@@ -529,6 +545,21 @@ export default function AndroidView() {
                 if (comp) return { component: comp };
                 return { package: pkg };
             }
+            case 'ping':
+                return {};
+            case 'wake_lock': {
+                const action = safeStr(wakeLockAction) || 'acquire';
+                if (action.toLowerCase() === 'release') return { action: 'release' };
+                return { action: 'acquire', durationMs: safeInt(wakeLockDuration, 600000) };
+            }
+            case 'keep_awake_activity':
+                return {
+                    finishAfterMs: safeInt(keepAwakeFinishAfter, 0),
+                    turnScreenOn: Boolean(keepAwakeTurnScreenOn),
+                    showWhenLocked: Boolean(keepAwakeShowWhenLocked)
+                };
+            case 'open_settings':
+                return { screen: safeStr(settingsScreen) || 'APP_DETAILS' };
             default:
                 return {};
         }
@@ -538,11 +569,15 @@ export default function AndroidView() {
         ensureComponent,
         ensurePackage,
         globalAction,
+        keepAwakeFinishAfter,
+        keepAwakeShowWhenLocked,
+        keepAwakeTurnScreenOn,
         longPressDuration,
         nodeMatch,
         nodeValue,
         openComponent,
         openPackage,
+        settingsScreen,
         swipeDuration,
         swipeX1,
         swipeX2,
@@ -551,8 +586,10 @@ export default function AndroidView() {
         tapX,
         tapY,
         textToSet,
-        useAdvancedPayload,
-        wakeDuration
+        useAdvancedPayload
+        ,
+        wakeLockAction,
+        wakeLockDuration
     ]);
 
     const send = useCallback(async () => {
@@ -579,6 +616,13 @@ export default function AndroidView() {
                 const keys = ['x1', 'y1', 'x2', 'y2'];
                 if (keys.some((k) => !Number.isFinite(Number(payload?.[k])))) {
                     throw new Error('Coordonnées swipe invalides.');
+                }
+            }
+            if (commandType === 'wake_lock') {
+                const a = String(payload?.action || '').toLowerCase();
+                if (a !== 'acquire' && a !== 'release') throw new Error('wake_lock.action doit être acquire|release');
+                if (a === 'acquire' && !Number.isFinite(Number(payload?.durationMs))) {
+                    throw new Error('wake_lock.durationMs invalide');
                 }
             }
 
@@ -744,14 +788,6 @@ export default function AndroidView() {
                                         type="button"
                                         className="conversions-pagination-btn"
                                         disabled={!selectedDeviceId || sending}
-                                        onClick={() => sendQuick('wake_lock', { durationMs: 5000 }).catch(() => {})}
-                                    >
-                                        Wake
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="conversions-pagination-btn"
-                                        disabled={!selectedDeviceId || sending}
                                         onClick={() => sendQuick('global_action', { action: 'HOME' }).catch(() => {})}
                                     >
                                         Home
@@ -763,6 +799,15 @@ export default function AndroidView() {
                                         onClick={() => sendQuick('global_action', { action: 'BACK' }).catch(() => {})}
                                     >
                                         Back
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="conversions-pagination-btn"
+                                        disabled={!selectedDeviceId || sending}
+                                        onClick={() => sendQuick('ping', {}).catch(() => {})}
+                                        title="Test rapide: vérifie que le device exécute bien les commandes"
+                                    >
+                                        Ping
                                     </button>
                                 </div>
                             </header>
@@ -898,17 +943,6 @@ export default function AndroidView() {
                                                         </div>
                                                     ) : null}
 
-                                                    {commandType === 'wake_lock' ? (
-                                                        <div className="android-field">
-                                                            <label>durationMs</label>
-                                                            <input
-                                                                value={wakeDuration}
-                                                                onChange={(e) => setWakeDuration(e.target.value)}
-                                                            />
-                                                            <div className="android-muted">Allume l’écran via WakeLock (best-effort).</div>
-                                                        </div>
-                                                    ) : null}
-
                                                     {commandType === 'click_node' || commandType === 'set_text' ? (
                                                         <>
                                                             <div className="android-field">
@@ -979,6 +1013,86 @@ export default function AndroidView() {
                                                                 />
                                                             </div>
                                                         </>
+                                                    ) : null}
+
+                                                    {commandType === 'wake_lock' ? (
+                                                        <>
+                                                            <div className="android-field">
+                                                                <label>action</label>
+                                                                <select
+                                                                    value={wakeLockAction}
+                                                                    onChange={(e) => setWakeLockAction(e.target.value)}
+                                                                >
+                                                                    <option value="acquire">acquire</option>
+                                                                    <option value="release">release</option>
+                                                                </select>
+                                                            </div>
+                                                            {String(wakeLockAction).toLowerCase() === 'acquire' ? (
+                                                                <div className="android-field">
+                                                                    <label>durationMs (CPU wake lock)</label>
+                                                                    <input
+                                                                        value={wakeLockDuration}
+                                                                        onChange={(e) => setWakeLockDuration(e.target.value)}
+                                                                        placeholder="600000"
+                                                                    />
+                                                                </div>
+                                                            ) : null}
+                                                            <div className="android-muted">
+                                                                Note: `wake_lock` garde surtout le CPU éveillé. Pour garder l’écran allumé,
+                                                                utilise `keep_awake_activity`.
+                                                            </div>
+                                                        </>
+                                                    ) : null}
+
+                                                    {commandType === 'keep_awake_activity' ? (
+                                                        <>
+                                                            <div className="android-field">
+                                                                <label>finishAfterMs (0 = ne pas fermer)</label>
+                                                                <input
+                                                                    value={keepAwakeFinishAfter}
+                                                                    onChange={(e) => setKeepAwakeFinishAfter(e.target.value)}
+                                                                    placeholder="0"
+                                                                />
+                                                            </div>
+                                                            <div className="android-form-row">
+                                                                <div className="android-field">
+                                                                    <label>turnScreenOn</label>
+                                                                    <select
+                                                                        value={keepAwakeTurnScreenOn ? 'true' : 'false'}
+                                                                        onChange={(e) => setKeepAwakeTurnScreenOn(e.target.value === 'true')}
+                                                                    >
+                                                                        <option value="true">true</option>
+                                                                        <option value="false">false</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div className="android-field">
+                                                                    <label>showWhenLocked</label>
+                                                                    <select
+                                                                        value={keepAwakeShowWhenLocked ? 'true' : 'false'}
+                                                                        onChange={(e) => setKeepAwakeShowWhenLocked(e.target.value === 'true')}
+                                                                    >
+                                                                        <option value="false">false</option>
+                                                                        <option value="true">true</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    ) : null}
+
+                                                    {commandType === 'open_settings' ? (
+                                                        <div className="android-field">
+                                                            <label>screen</label>
+                                                            <select
+                                                                value={settingsScreen}
+                                                                onChange={(e) => setSettingsScreen(e.target.value)}
+                                                            >
+                                                                {SETTINGS_SCREENS.map((s) => (
+                                                                    <option key={s.value} value={s.value}>
+                                                                        {s.label}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
                                                     ) : null}
                                                 </>
                                             )}
