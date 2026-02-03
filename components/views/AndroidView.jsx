@@ -41,6 +41,7 @@ const SETTINGS_SCREENS = [
     { value: 'APP_DETAILS', label: 'App details (this app)' },
     { value: 'ACCESSIBILITY', label: 'Accessibility settings' },
     { value: 'BATTERY_OPTIMIZATIONS', label: 'Battery optimizations' },
+    { value: 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', label: 'Request ignore battery optimizations (prompt)' },
     { value: 'OVERLAY', label: 'Overlay permission (draw over apps)' },
     { value: 'WRITE_SETTINGS', label: 'Write settings permission' }
 ];
@@ -68,6 +69,16 @@ function fmtJson(v) {
     } catch {
         return String(v);
     }
+}
+
+function fmtStatusLabel(status) {
+    const s = String(status || '').trim().toLowerCase();
+    if (!s) return '—';
+    if (s === 'pending') return 'en attente';
+    if (s === 'running' || s === 'in_progress') return 'en cours';
+    if (s === 'done') return 'réussie';
+    if (s === 'error' || s === 'failed') return 'échec';
+    return s;
 }
 
 function pad2(n) {
@@ -1254,7 +1265,7 @@ export default function AndroidView() {
                                                                         <PlayerIcon name="replay" />
                                                                     </button>
                                                                     <span className={`android-badge ${c.status || ''}`}>
-                                                                        {c.status || '—'}
+                                                                        {fmtStatusLabel(c.status)}
                                                                     </span>
                                                                 </div>
                                                             </div>
