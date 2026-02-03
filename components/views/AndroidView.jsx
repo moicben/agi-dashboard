@@ -17,6 +17,7 @@ const COMMAND_TYPES = [
     { value: 'long_press', label: 'Long press' },
     { value: 'swipe', label: 'Swipe' },
     { value: 'global_action', label: 'Global action' },
+    { value: 'wake_lock', label: 'Wake lock' },
     { value: 'click_node', label: 'Click node (a11y)' },
     { value: 'set_text', label: 'Set text (a11y)' },
     { value: 'open_app', label: 'Open app' }
@@ -171,6 +172,7 @@ export default function AndroidView() {
 
     const [tapX, setTapX] = useState('');
     const [tapY, setTapY] = useState('');
+    const [wakeDuration, setWakeDuration] = useState('5000');
     const [longPressDuration, setLongPressDuration] = useState('700');
     const [swipeX1, setSwipeX1] = useState('');
     const [swipeY1, setSwipeY1] = useState('');
@@ -503,6 +505,8 @@ export default function AndroidView() {
                 };
             case 'global_action':
                 return { action: globalAction };
+            case 'wake_lock':
+                return { durationMs: safeInt(wakeDuration, 5000) };
             case 'click_node': {
                 const p = { value: safeStr(nodeValue), match: nodeMatch };
                 const ec = safeStr(ensureComponent);
@@ -547,7 +551,8 @@ export default function AndroidView() {
         tapX,
         tapY,
         textToSet,
-        useAdvancedPayload
+        useAdvancedPayload,
+        wakeDuration
     ]);
 
     const send = useCallback(async () => {
@@ -739,6 +744,14 @@ export default function AndroidView() {
                                         type="button"
                                         className="conversions-pagination-btn"
                                         disabled={!selectedDeviceId || sending}
+                                        onClick={() => sendQuick('wake_lock', { durationMs: 5000 }).catch(() => {})}
+                                    >
+                                        Wake
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="conversions-pagination-btn"
+                                        disabled={!selectedDeviceId || sending}
                                         onClick={() => sendQuick('global_action', { action: 'HOME' }).catch(() => {})}
                                     >
                                         Home
@@ -882,6 +895,17 @@ export default function AndroidView() {
                                                                     </option>
                                                                 ))}
                                                             </select>
+                                                        </div>
+                                                    ) : null}
+
+                                                    {commandType === 'wake_lock' ? (
+                                                        <div className="android-field">
+                                                            <label>durationMs</label>
+                                                            <input
+                                                                value={wakeDuration}
+                                                                onChange={(e) => setWakeDuration(e.target.value)}
+                                                            />
+                                                            <div className="android-muted">Allume l’écran via WakeLock (best-effort).</div>
                                                         </div>
                                                     ) : null}
 

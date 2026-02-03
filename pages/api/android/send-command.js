@@ -6,6 +6,7 @@ const ALLOWED_COMMANDS = new Set([
   'long_press',
   'swipe',
   'global_action',
+  'wake_lock',
   'click_node',
   'set_text',
   'open_app'
