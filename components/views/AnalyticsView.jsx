@@ -421,7 +421,7 @@ export default function AnalyticsView() {
     const canPrev = conversionsPage > 0 && !conversionsLoading;
     const canNext =
         !conversionsLoading &&
-        (typeof conversionsTotal === 'number'  
+        (typeof conversionsTotal === 'number'
             ? pageToLabel < conversionsTotal
             : conversionsRows.length === pageSize);
 
