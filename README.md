@@ -25,11 +25,11 @@ Toutes les valeurs sensibles sont stockées dans un fichier `.env` à la racine 
 
    ```env
    # Configuration Incus
-   INCUS_SERVER=https://agi.worksbace.space
+   INCUS_SERVER=https://agi.worksbace.online
    IP_PREFIX=10.XXX.XX.
 
    # API Incus
-   INCUS_API_URL=https://agi.worksbace.space/instances
+   INCUS_API_URL=https://agi.worksbace.online/instances
    INCUS_API_KEY=your-api-key-here
 
    # Port du serveur (optionnel)
