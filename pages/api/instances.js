@@ -1,13 +1,23 @@
 export default async function handler(req, res) {
   try {
     // Configuration depuis les variables d'environnement
-    const INCUS_API_URL = process.env.INCUS_API_URL;
+    // `INCUS_API_URL` peut être fourni pour override, mais par défaut
+    // on le construit à partir de `INCUS_SERVER`.
+    const INCUS_SERVER = process.env.INCUS_SERVER;
+    const INCUS_API_URL =
+      process.env.INCUS_API_URL ||
+      (INCUS_SERVER ? `${INCUS_SERVER.replace(/\/$/, '')}/instances` : undefined);
     const INCUS_API_KEY = process.env.INCUS_API_KEY;
     const IP_PREFIX = process.env.IP_PREFIX;
 
     // Vérifier que toutes les variables d'environnement nécessaires sont définies
     const missingVars = [];
-    if (!INCUS_API_URL) missingVars.push('INCUS_API_URL');
+    if (!INCUS_API_URL) {
+      // Si on n'a pas pu calculer l'URL, c'est qu'il manque INCUS_SERVER.
+      // (ou que INCUS_API_URL n'est pas défini)
+      if (!INCUS_SERVER) missingVars.push('INCUS_SERVER');
+      else missingVars.push('INCUS_API_URL');
+    }
     if (!INCUS_API_KEY) missingVars.push('INCUS_API_KEY');
     if (!IP_PREFIX) missingVars.push('IP_PREFIX');
 

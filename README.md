@@ -29,7 +29,8 @@ Toutes les valeurs sensibles sont stockées dans un fichier `.env` à la racine 
    IP_PREFIX=10.XXX.XX.
 
    # API Incus
-   INCUS_API_URL=https://agi.worksbace.online/instances
+   # (optionnel) Override explicite si ton endpoint n'est pas `${INCUS_SERVER}/instances`
+   # INCUS_API_URL=https://agi.worksbace.online/instances
    INCUS_API_KEY=your-api-key-here
 
    # Port du serveur (optionnel)
@@ -39,7 +40,7 @@ Toutes les valeurs sensibles sont stockées dans un fichier `.env` à la racine 
 3. **Variables d'environnement disponibles** :
    - `INCUS_SERVER` : URL complète du serveur Incus (format: `https://domain.com` ou `https://domain.com:port`) (requis)
    - `IP_PREFIX` : Préfixe IP des containers (requis)
-   - `INCUS_API_URL` : URL de l'API Incus pour récupérer les instances (requis)
+   - `INCUS_API_URL` : URL de l'API Incus pour récupérer les instances (**optionnel**, défaut: `${INCUS_SERVER}/instances`)
    - `INCUS_API_KEY` : Clé API pour authentifier les requêtes vers l'API Incus (requis)
    - `PORT` : Port sur lequel le serveur Express écoute (optionnel, défaut: 3000)
 
