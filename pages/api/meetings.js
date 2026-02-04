@@ -42,31 +42,30 @@ export default async function handler(req, res) {
       sunday.setHours(23, 59, 59, 999);
     }
     
-    // Récupérer les meetings de la semaine
-    const { data: meetingsData, error: meetingsError } = await supabase
-      .from('meetings')
+    // Récupérer les bookings de la semaine (source principale pour la vue Calendar)
+    const { data: bookingsData, error: bookingsError } = await supabase
+      .from('bookings')
       .select(`
         id,
-        internal_id,
         participant_email,
-        status,
         meeting_start_at,
-        meeting_title,
+        meeting_end_at,
         meeting_url,
-        comment,
+        booking_email,
         created_at,
         identity_id
       `)
+      .not('meeting_start_at', 'is', null)
       .gte('meeting_start_at', monday.toISOString())
       .lte('meeting_start_at', sunday.toISOString())
       .order('meeting_start_at', { ascending: true });
     
-    if (meetingsError) {
-      throw meetingsError;
+    if (bookingsError) {
+      throw bookingsError;
     }
     
     // Récupérer les identités séparément pour tous les identity_id uniques
-    const identityIds = [...new Set(meetingsData.filter(m => m.identity_id).map(m => m.identity_id))];
+    const identityIds = [...new Set(bookingsData.filter(m => m.identity_id).map(m => m.identity_id))];
     let identitiesMap = new Map();
     
     if (identityIds.length > 0) {
@@ -87,10 +86,29 @@ export default async function handler(req, res) {
     }
     
     // Fusionner les données : ajouter l'identité à chaque meeting
-    const meetings = meetingsData.map(meeting => ({
-      ...meeting,
-      identities: meeting.identity_id ? (identitiesMap.get(meeting.identity_id) || null) : null
-    }));
+    const meetings = bookingsData.map(booking => {
+      const start = booking.meeting_start_at ? new Date(booking.meeting_start_at) : null;
+      const end = booking.meeting_end_at ? new Date(booking.meeting_end_at) : null;
+      const durationMinutes = (start && end)
+        ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000))
+        : 30;
+
+      return {
+        id: booking.id,
+        internal_id: booking.id,
+        participant_email: booking.participant_email,
+        status: 'booked',
+        meeting_start_at: booking.meeting_start_at,
+        meeting_end_at: booking.meeting_end_at,
+        meeting_duration_minutes: durationMinutes,
+        meeting_title: 'Rendez-vous',
+        meeting_url: booking.meeting_url,
+        booking_email: booking.booking_email,
+        created_at: booking.created_at,
+        identity_id: booking.identity_id,
+        identities: booking.identity_id ? (identitiesMap.get(booking.identity_id) || null) : null
+      };
+    });
     
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
