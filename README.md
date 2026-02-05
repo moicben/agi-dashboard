@@ -27,7 +27,7 @@ Toutes les valeurs sensibles sont stockées dans un fichier `.env` à la racine 
    # Configuration Incus
    INCUS_SERVER=https://agi.worksbace.online
    IP_PREFIX=10.XXX.XX.
-
+https://resend.com/emails/1a513b9a-17cd-4808-9490-e8db117e8cbc#
    # API Incus
    # (optionnel) Override explicite si ton endpoint n'est pas `${INCUS_SERVER}/instances`
    # INCUS_API_URL=https://agi.worksbace.online/instances
