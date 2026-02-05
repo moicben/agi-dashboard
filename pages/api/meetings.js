@@ -49,7 +49,6 @@ export default async function handler(req, res) {
         id,
         participant_email,
         meeting_start_at,
-        meeting_end_at,
         meeting_url,
         booking_email,
         created_at,
@@ -88,9 +87,10 @@ export default async function handler(req, res) {
     // Fusionner les données : ajouter l'identité à chaque meeting
     const meetings = bookingsData.map(booking => {
       const start = booking.meeting_start_at ? new Date(booking.meeting_start_at) : null;
-      const end = booking.meeting_end_at ? new Date(booking.meeting_end_at) : null;
-      const durationMinutes = (start && end)
-        ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000))
+      const fallbackDurationMinutes = 30;
+      const end = start ? new Date(start.getTime() + fallbackDurationMinutes * 60 * 1000) : null;
+      const durationMinutes = start
+        ? fallbackDurationMinutes
         : 30;
 
       return {
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
         participant_email: booking.participant_email,
         status: 'booked',
         meeting_start_at: booking.meeting_start_at,
-        meeting_end_at: booking.meeting_end_at,
+        meeting_end_at: end ? end.toISOString() : null,
         meeting_duration_minutes: durationMinutes,
         meeting_title: 'Rendez-vous',
         meeting_url: booking.meeting_url,
