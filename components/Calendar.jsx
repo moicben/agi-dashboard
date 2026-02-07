@@ -110,6 +110,7 @@ function Calendar({ currentDate, onDateChange }) {
   const [calendarHeight, setCalendarHeight] = useState(null);
   const [selectedIdentityId, setSelectedIdentityId] = useState(null);
   const [availableIdentities, setAvailableIdentities] = useState([]);
+  const [bookingIdQuery, setBookingIdQuery] = useState('');
   const calendarBodyRef = useRef(null);
   const [currentViewDate, setCurrentViewDate] = useState(() => {
     // Initialiser avec aujourd'hui en UTC
@@ -234,14 +235,22 @@ function Calendar({ currentDate, onDateChange }) {
 
   // Convertir les meetings en événements avec filtrage par identité
   useEffect(() => {
-    // Filtrer les meetings selon l'identité sélectionnée
-    const filteredMeetings = selectedIdentityId
-      ? allMeetingsData.filter(meeting => meeting.identities?.id === selectedIdentityId)
-      : allMeetingsData;
+    const query = String(bookingIdQuery || '').trim().toLowerCase();
+
+    // Filtrer les meetings selon l'identité sélectionnée puis le bookingId (id bookings)
+    const filteredMeetings = allMeetingsData
+      .filter(meeting => (selectedIdentityId ? meeting.identities?.id === selectedIdentityId : true))
+      .filter(meeting => {
+        if (!query) return true;
+        const id = String(meeting.id || '').toLowerCase();
+        const internalId = String(meeting.internal_id || '').toLowerCase();
+        // match exact ou partiel (pratique si on colle/retape)
+        return id === query || internalId === query || id.includes(query) || internalId.includes(query);
+      });
     
     // Stocker les données filtrées pour la popup
     setMeetingsData(filteredMeetings);
-  }, [allMeetingsData, selectedIdentityId]);
+  }, [allMeetingsData, selectedIdentityId, bookingIdQuery]);
 
   // Charger les meetings quand la date change
   useEffect(() => {
@@ -505,7 +514,6 @@ function Calendar({ currentDate, onDateChange }) {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         gap: '12px',
         marginBottom: '0px',
         padding: '0',
@@ -609,6 +617,33 @@ function Calendar({ currentDate, onDateChange }) {
           >
             →
           </button>
+        </div>
+
+        {/* Recherche bookingId (toujours visible, en haut à droite) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+          <input
+            value={bookingIdQuery}
+            onChange={(e) => setBookingIdQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setBookingIdQuery('');
+              }
+            }}
+            placeholder="Filtrer par Booking ID…"
+            aria-label="Filtrer les meetings par Booking ID"
+            style={{
+              background: '#0a0a0a',
+              color: '#e0e0e0',
+              border: '1px solid #2a2a2a',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontFamily: 'inherit',
+              width: '280px',
+              maxWidth: '50vw',
+              outline: 'none'
+            }}
+          />
         </div>
       </div>
 
@@ -728,11 +763,11 @@ function Calendar({ currentDate, onDateChange }) {
                       const leftPct = widthPct * (ev.colIndex || 0);
 
                       const identity = ev.meeting.identities;
-                      const bookerName = identity?.fullname || ev.meeting.participant_email || 'Inconnu';
+                      const participantEmail = ev.meeting.booking_email || ev.meeting.participant_email || '';
+                      const bookerName = identity?.fullname || participantEmail || 'Inconnu';
                       const company = identity?.company || '';
                       const meetingTitle = ev.meeting.meeting_title || 'Meeting';
-                      // Email affiché: source unique = colonne meetings.participant_email
-                      const participantEmail = ev.meeting.participant_email || '';
+                      // Email affiché: source = bookings.booking_email (fallback participant_email)
 
                       return (
                         <div

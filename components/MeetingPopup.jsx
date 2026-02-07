@@ -18,10 +18,10 @@ export default function MeetingPopup({ meeting, onClose }) {
     if (!meeting) return null;
 
     const identity = meeting.identities;
-    const bookerName = identity?.fullname || meeting.participant_email || 'Inconnu';
+    const organizerEmail = meeting.booking_email || '';
+    const participantEmail = meeting.participant_mail || meeting.participant_email || '';
+    const organizerName = identity?.fullname || 'Inconnu';
     const company = identity?.company || '';
-    // Email affiché: source unique = colonne meetings.participant_email
-    const participantEmail = meeting.participant_email || '';
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
@@ -73,13 +73,13 @@ export default function MeetingPopup({ meeting, onClose }) {
                         <div className="meeting-popup-field">
                             <span className="meeting-popup-label">Organisateur</span>
                             <span className="meeting-popup-value">
-                                {bookerName}
+                                {organizerEmail || organizerName}
                                 {company ? ` (${company})` : ''}
                             </span>
                         </div>
                         {participantEmail && (
                             <div className="meeting-popup-field">
-                                <span className="meeting-popup-label">Email participant</span>
+                                <span className="meeting-popup-label">PARTICIPANT :</span>
                                 <span className="meeting-popup-value">{participantEmail}</span>
                             </div>
                         )}
