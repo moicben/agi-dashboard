@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import ViewShell from '../ViewShell.jsx';
+import ViewShell from '../ViewShell.jsx'; 
 import { fetchAnalytics, fetchBestQueries, fetchConversions } from '../../lib/api.js';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
