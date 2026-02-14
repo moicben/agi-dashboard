@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ViewShell from '../ViewShell.jsx';
 import { fetchConfig, fetchContainers } from '../../lib/api.js';
-import { buildVncUrl, REFRESH_INTERVAL } from '../../lib/utils.js';
+import { REFRESH_INTERVAL } from '../../lib/utils.js';
 
 const DEV_CONTAINERS = new Set(['c-template', 'b-template', 'wireguard', 'android', 'c-test']);
+const LOCAL_NOVNC_GATEWAY_URL = 'http://192.168.139.239:6080';
+
+function buildLocalNoVncUrl(ip, gatewayUrl = LOCAL_NOVNC_GATEWAY_URL) {
+    if (!ip || !gatewayUrl) return '';
+    const sanitizedGateway = gatewayUrl.replace(/\/$/, '');
+    // Le gateway applique les options noVNC (dont local scaling) côté serveur.
+    return `${sanitizedGateway}/vnc.html?ip=${encodeURIComponent(ip)}`;
+}
 
 function getContainersToDisplay(containers, mode) {
     if (mode === 'dev') {
@@ -239,7 +247,7 @@ export default function ContainersView() {
                                     <span className="ip">{container.ip}</span>
                                 </div>
                                 <iframe
-                                    src={buildVncUrl(config?.incusServer, container.ip)}
+                                    src={buildLocalNoVncUrl(container.ip, config?.noVncGatewayUrl)}
                                     className="grid-item-iframe"
                                     title={container.name}
                                     allow="fullscreen"

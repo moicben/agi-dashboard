@@ -1,3 +1,71 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+
+function extractIpFromStateNetwork(network = {}, ipPrefix = '') {
+  if (!network || typeof network !== 'object') {
+    return null;
+  }
+  const interfaces = Object.values(network);
+  for (const iface of interfaces) {
+    const addresses = Array.isArray(iface?.addresses) ? iface.addresses : [];
+    for (const address of addresses) {
+      if (address?.family !== 'inet' || !address?.address) continue;
+      if (!ipPrefix || address.address.startsWith(ipPrefix)) {
+        return address.address;
+      }
+    }
+  }
+  return null;
+}
+
+function mapIncusInstanceToContainer(instance, ipPrefix) {
+  let ip = null;
+  let ipSuffix = null;
+
+  // Supporte les deux formats: API custom "ips" et sortie "incus list --format json".
+  if (Array.isArray(instance?.ips) && instance.ips.length > 0) {
+    const ipObj = instance.ips.find(
+      ipItem => ipItem?.address && (!ipPrefix || ipItem.address.startsWith(ipPrefix))
+    ) || instance.ips.find(ipItem => ipItem?.address);
+    ip = ipObj?.address || null;
+  } else {
+    ip = extractIpFromStateNetwork(instance?.state?.network, ipPrefix);
+  }
+
+  if (ip && ipPrefix && ip.startsWith(ipPrefix)) {
+    ipSuffix = ip.replace(ipPrefix, '');
+  }
+
+  if (!ipSuffix && instance?.name) {
+    const match = instance.name.match(/(\d+)$/);
+    if (match) {
+      ipSuffix = match[1];
+      if (!ip && ipPrefix) {
+        ip = `${ipPrefix}${ipSuffix}`;
+      }
+    }
+  }
+
+  return {
+    name: instance?.name,
+    ipSuffix,
+    ip,
+    status: instance?.status,
+    type: instance?.type
+  };
+}
+
+async function fetchInstancesFromLocalIncus() {
+  const { stdout } = await execFileAsync('incus', ['list', '--format', 'json'], {
+    timeout: 12000,
+    maxBuffer: 10 * 1024 * 1024
+  });
+  const parsed = JSON.parse(stdout);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
 export default async function handler(req, res) {
   try {
     // Configuration depuis les variables d'environnement
@@ -8,17 +76,11 @@ export default async function handler(req, res) {
       process.env.INCUS_API_URL ||
       (INCUS_SERVER ? `${INCUS_SERVER.replace(/\/$/, '')}/instances` : undefined);
     const INCUS_API_KEY = process.env.INCUS_API_KEY;
-    const IP_PREFIX = process.env.IP_PREFIX;
+    const IP_PREFIX = process.env.IP_PREFIX || '10.22.138.';
+    const canUseRemoteApi = Boolean(INCUS_API_URL && INCUS_API_KEY);
 
-    // Vérifier que toutes les variables d'environnement nécessaires sont définies
+    // Vérifier la configuration minimale.
     const missingVars = [];
-    if (!INCUS_API_URL) {
-      // Si on n'a pas pu calculer l'URL, c'est qu'il manque INCUS_SERVER.
-      // (ou que INCUS_API_URL n'est pas défini)
-      if (!INCUS_SERVER) missingVars.push('INCUS_SERVER');
-      else missingVars.push('INCUS_API_URL');
-    }
-    if (!INCUS_API_KEY) missingVars.push('INCUS_API_KEY');
     if (!IP_PREFIX) missingVars.push('IP_PREFIX');
 
     if (missingVars.length > 0) {
@@ -33,58 +95,29 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Faire la requête à l'API Incus depuis le serveur (pas de problème CORS)
-    const response = await fetch(INCUS_API_URL, {
-      headers: {
-        'x-api-key': INCUS_API_KEY
+    let instances = [];
+    if (canUseRemoteApi) {
+      // Requête API distante quand les secrets sont disponibles.
+      const response = await fetch(INCUS_API_URL, {
+        headers: {
+          'x-api-key': INCUS_API_KEY
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
       }
-    });
 
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
+      const data = await response.json();
+      instances = Array.isArray(data) ? data : [];
+    } else {
+      // Fallback local pour environnement de dev local sans secrets.
+      instances = await fetchInstancesFromLocalIncus();
     }
 
-    const data = await response.json();
-
-    // Traiter les données de l'API Incus
-    // Format: [{"name":"scheduler","type":"container","status":"Running","ips":[{"interface":"eth0","address":"10.225.44.181"}]}, ...]
-    let containers = [];
-
-    if (Array.isArray(data)) {
-      containers = data.map(instance => {
-        // Extraire le suffixe IP depuis l'IP complète
-        let ipSuffix = null;
-        let ip = null;
-
-        if (instance.ips && Array.isArray(instance.ips) && instance.ips.length > 0) {
-          // Chercher l'IP qui correspond au préfixe
-          const ipObj = instance.ips.find(ipItem =>
-            ipItem.address && ipItem.address.startsWith(IP_PREFIX)
-          );
-          if (ipObj && ipObj.address) {
-            ip = ipObj.address;
-            ipSuffix = ip.replace(IP_PREFIX, '');
-          }
-        }
-
-        // Si pas d'IP trouvée, essayer d'extraire depuis le nom (ex: booker-181 -> 181)
-        if (!ipSuffix && instance.name) {
-          const match = instance.name.match(/(\d+)$/);
-          if (match) {
-            ipSuffix = match[1];
-            ip = `${IP_PREFIX}${ipSuffix}`;
-          }
-        }
-
-        return {
-          name: instance.name,
-          ipSuffix: ipSuffix,
-          ip: ip,
-          status: instance.status,
-          type: instance.type
-        };
-      }).filter(container => container.ipSuffix);
-    }
+    const containers = instances
+      .map(instance => mapIncusInstanceToContainer(instance, IP_PREFIX))
+      .filter(container => container.ipSuffix);
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');

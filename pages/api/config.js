@@ -1,8 +1,12 @@
 export default async function handler(req, res) {
   try {
     // Configuration depuis les variables d'environnement
-    const INCUS_SERVER = process.env.INCUS_SERVER;
-    const IP_PREFIX = process.env.IP_PREFIX;
+    const NO_VNC_GATEWAY_URL =
+      process.env.NO_VNC_GATEWAY_URL ||
+      process.env.NOVNC_GATEWAY_URL ||
+      'http://192.168.139.239:6080';
+    const INCUS_SERVER = process.env.INCUS_SERVER || NO_VNC_GATEWAY_URL;
+    const IP_PREFIX = process.env.IP_PREFIX || '10.22.138.';
 
     // Vérifier que les variables d'environnement sont définies
     if (!INCUS_SERVER || !IP_PREFIX) {
@@ -25,7 +29,8 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json({
       incusServer: INCUS_SERVER,
-      ipPrefix: IP_PREFIX
+      ipPrefix: IP_PREFIX,
+      noVncGatewayUrl: NO_VNC_GATEWAY_URL
     });
   } catch (error) {
     console.error('Erreur dans /api/config:', error);

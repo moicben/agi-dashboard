@@ -711,7 +711,12 @@ export default function AndroidView() {
     }, [commands]);
 
     const eventsPreview = useMemo(() => {
-        const items = Array.isArray(events) ? events.slice(0, 24) : [];
+        const hiddenEventTypes = new Set(['screenshot_hearbeat', 'screenshot_heartbeat']);
+        const items = Array.isArray(events)
+            ? events
+                  .filter((ev) => !hiddenEventTypes.has(String(ev?.event_type || ev?.events_type || '').toLowerCase()))
+                  .slice(0, 24)
+            : [];
         return items;
     }, [events]);
 
