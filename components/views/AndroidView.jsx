@@ -711,7 +711,7 @@ export default function AndroidView() {
     }, [commands]);
 
     const eventsPreview = useMemo(() => {
-        const hiddenEventTypes = new Set(['screenshot_hearbeat', 'screenshot_heartbeat']);
+        const hiddenEventTypes = new Set(['screenshot_heartbeat']);
         const items = Array.isArray(events)
             ? events
                   .filter((ev) => !hiddenEventTypes.has(String(ev?.event_type || ev?.events_type || '').toLowerCase()))
