@@ -248,6 +248,9 @@
     padding: 10px 10px;
     cursor: pointer;
     color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .android-hour-card:hover {
@@ -259,6 +262,16 @@
     font-size: 13px;
     color: #e0e0e0;
     margin-bottom: 2px;
+}
+
+.android-hour-thumb {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    border: 1px solid #1a1a1a;
+    background: #000;
+    margin-top: 2px;
 }
 
 .android-player {

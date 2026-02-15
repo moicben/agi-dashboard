@@ -44,6 +44,14 @@ async function listAllWebpFiles({ supabase, bucket, dayPath, maxFiles }) {
   return { files: out.slice(0, maxFiles), truncated: out.length >= maxFiles };
 }
 
+async function signOrPublicUrl({ supabase, bucket, objectPath, expiresIn }) {
+  const { data: signed, error: signedErr } = await supabase.storage.from(bucket).createSignedUrl(objectPath, expiresIn);
+  if (!signedErr && signed?.signedUrl) return { url: signed.signedUrl, mode: 'signed' };
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  if (pub?.publicUrl) return { url: pub.publicUrl, mode: 'public' };
+  throw signedErr || new Error('Impossible de générer une URL (signed/public).');
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'GET') {
@@ -72,19 +80,47 @@ export default async function handler(req, res) {
 
     const { files, truncated } = await listAllWebpFiles({ supabase, bucket, dayPath, maxFiles });
 
-    const hours = new Map(); // hh -> { hour, count, firstName, lastName }
+    const hours = new Map(); // hh -> { hour, count, firstName, lastName, names[] }
     for (const f of files) {
       const hh = parseHourFromScreenshotName(f?.name);
       if (hh === null) continue;
-      const cur = hours.get(hh) || { hour: hh, count: 0, firstName: null, lastName: null };
+      const cur = hours.get(hh) || { hour: hh, count: 0, firstName: null, lastName: null, names: [] };
       cur.count += 1;
       const n = String(f.name);
       if (!cur.firstName || n < cur.firstName) cur.firstName = n;
       if (!cur.lastName || n > cur.lastName) cur.lastName = n;
+      cur.names.push(n);
       hours.set(hh, cur);
     }
 
-    const hourList = Array.from(hours.values()).sort((a, b) => a.hour - b.hour);
+    const hourListRaw = Array.from(hours.values()).sort((a, b) => a.hour - b.hour);
+    const expiresIn = 3600;
+    const hourList = [];
+    for (const entry of hourListRaw) {
+      const names = Array.isArray(entry.names) ? entry.names.slice().sort((a, b) => String(a).localeCompare(String(b))) : [];
+      const count = names.length;
+      const middleIndex = count > 0 ? Math.floor((count - 1) / 2) : -1; // 1-based ceil(n/2)
+      const middleName = middleIndex >= 0 ? names[middleIndex] : null;
+      let middleUrl = null;
+      if (middleName) {
+        const objectPath = `${dayPath}/${middleName}`;
+        try {
+          const signed = await signOrPublicUrl({ supabase, bucket, objectPath, expiresIn });
+          middleUrl = signed.url;
+        } catch {
+          middleUrl = null;
+        }
+      }
+      hourList.push({
+        hour: entry.hour,
+        count,
+        firstName: entry.firstName,
+        lastName: entry.lastName,
+        middleName,
+        middleIndex,
+        middleUrl
+      });
+    }
 
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Access-Control-Allow-Origin', '*');

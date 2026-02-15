@@ -1215,6 +1215,14 @@ export default function AndroidView() {
                                                             >
                                                                 <div className="android-hour-title">{pad2(h.hour)}:00</div>
                                                                 <div className="android-muted">{h.count} frame(s)</div>
+                                                                {h?.middleUrl ? (
+                                                                    <img
+                                                                        className="android-hour-thumb"
+                                                                        src={h.middleUrl}
+                                                                        alt={`Miniature ${pad2(h.hour)}:00`}
+                                                                        loading="lazy"
+                                                                    />
+                                                                ) : null}
                                                             </button>
                                                         ))}
                                                     </div>
