@@ -264,6 +264,18 @@
     margin-bottom: 2px;
 }
 
+.android-hour-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.android-hour-count {
+    margin-left: auto;
+    text-align: right;
+}
+
 .android-hour-thumb {
     width: 100%;
     height: auto;
@@ -290,6 +302,16 @@
 
 .android-player-frame {
     display: block;
+}
+
+.android-player-preload {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    left: 0;
+    top: 0;
 }
 
 .android-player-clicklayer {

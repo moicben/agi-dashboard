@@ -4,10 +4,11 @@ import {
     fetchAndroidCommands,
     fetchAndroidDevices,
     fetchAndroidEvents,
+    fetchAndroidScreenshotDayManifest,
     fetchAndroidLatestScreenshot,
     fetchAndroidScreenshotDayIndex,
     fetchAndroidScreenshotDays,
-    fetchAndroidScreenshotFrames,
+    fetchAndroidScreenshotFrameUrl,
     sendAndroidCommand
 } from '../../lib/api.js';
 
@@ -128,12 +129,23 @@ export default function AndroidView() {
     const [playerDay, setPlayerDay] = useState('');
     const [playerHour, setPlayerHour] = useState(null);
     const [playerFrames, setPlayerFrames] = useState([]);
+    const [playerHours, setPlayerHours] = useState([]);
     const [playerLoading, setPlayerLoading] = useState(false);
     const [playerError, setPlayerError] = useState(null);
     const [playerIndex, setPlayerIndex] = useState(0);
     const [playerPlaying, setPlayerPlaying] = useState(false);
+    const [playerScrubbing, setPlayerScrubbing] = useState(false);
     const [playerSpeed, setPlayerSpeed] = useState(1); // x1,x2,x4,x8
+    const [playerFrameVersion, setPlayerFrameVersion] = useState(0);
+    const [playerDisplayedUrl, setPlayerDisplayedUrl] = useState('');
+    const [playerPendingUrl, setPlayerPendingUrl] = useState('');
+    const [playerPendingIndex, setPlayerPendingIndex] = useState(-1);
     const playerTimerRef = useRef(null);
+    const playerFrameCacheRef = useRef(new Map());
+    const playerFrameInflightRef = useRef(new Map());
+    const playerPrefetchCursorRef = useRef(-9999);
+    const playerManifestCacheRef = useRef(new Map());
+    const playerManifestInflightRef = useRef(new Map());
 
     const PlayerIcon = ({ name }) => {
         const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' };
@@ -294,6 +306,152 @@ export default function AndroidView() {
         setPlayerPlaying(false);
     }, []);
 
+    const clearPlayerFrameCache = useCallback(() => {
+        playerFrameCacheRef.current.clear();
+        playerFrameInflightRef.current.clear();
+        playerPrefetchCursorRef.current = -9999;
+        setPlayerPendingUrl('');
+        setPlayerPendingIndex(-1);
+        setPlayerDisplayedUrl('');
+        setPlayerFrameVersion((v) => v + 1);
+    }, []);
+
+    const getPlayerCacheKey = useCallback((day, frameName) => `${String(day || '')}::${String(frameName || '')}`, []);
+
+    const requestFrameByIndex = useCallback(
+        async (index, { expiresIn = 300 } = {}) => {
+            if (!selectedDeviceId) return null;
+            const day = String(playerDay || '');
+            if (!day) return null;
+
+            const i = Number(index);
+            if (!Number.isFinite(i) || i < 0 || i >= playerFrames.length) return null;
+
+            const frame = playerFrames[i];
+            const frameName = String(frame?.name || '');
+            if (!frameName) return null;
+
+            const key = getPlayerCacheKey(day, frameName);
+            const existing = playerFrameCacheRef.current.get(key);
+            if (existing?.url) return existing;
+
+            const inflight = playerFrameInflightRef.current.get(key);
+            if (inflight) return inflight;
+
+            const promise = fetchAndroidScreenshotFrameUrl(selectedDeviceId, day, frameName, { expiresIn })
+                .then((data) => {
+                    const next = {
+                        url: data?.url || null,
+                        path: data?.path || frame?.path || null,
+                        name: frameName,
+                        index: i,
+                        fetchedAt: Date.now()
+                    };
+                    playerFrameCacheRef.current.set(key, next);
+                    setPlayerFrameVersion((v) => v + 1);
+                    return next;
+                })
+                .finally(() => {
+                    playerFrameInflightRef.current.delete(key);
+                });
+
+            playerFrameInflightRef.current.set(key, promise);
+            return promise;
+        },
+        [getPlayerCacheKey, playerDay, playerFrames, selectedDeviceId]
+    );
+
+    const evictFrameCache = useCallback(() => {
+        if (!playerFrames.length || !playerDay) return;
+
+        const keepMin = Math.max(0, playerIndex - 80);
+        const keepMax = Math.min(playerFrames.length - 1, playerIndex + 220);
+        const maxCacheEntries = 340;
+        const entries = Array.from(playerFrameCacheRef.current.entries());
+        let changed = false;
+
+        for (const [key, value] of entries) {
+            if (typeof value?.index !== 'number') continue;
+            if (value.index < keepMin || value.index > keepMax) {
+                playerFrameCacheRef.current.delete(key);
+                changed = true;
+            }
+        }
+
+        if (playerFrameCacheRef.current.size > maxCacheEntries) {
+            const sorted = Array.from(playerFrameCacheRef.current.entries()).sort(
+                (a, b) => Number(a?.[1]?.fetchedAt || 0) - Number(b?.[1]?.fetchedAt || 0)
+            );
+            const toDelete = playerFrameCacheRef.current.size - maxCacheEntries;
+            for (let i = 0; i < toDelete; i += 1) {
+                const key = sorted[i]?.[0];
+                if (!key) continue;
+                playerFrameCacheRef.current.delete(key);
+                changed = true;
+            }
+        }
+
+        if (changed) setPlayerFrameVersion((v) => v + 1);
+    }, [playerDay, playerFrames.length, playerIndex]);
+
+    const loadPlayerManifest = useCallback(
+        async (day) => {
+            if (!selectedDeviceId || !day) return null;
+            const d = String(day);
+            const cached = playerManifestCacheRef.current.get(d);
+            if (cached?.frames?.length) {
+                if (playerDay !== d || playerFrames !== cached.frames) {
+                    setPlayerDay(d);
+                    setPlayerFrames(cached.frames);
+                    setPlayerHours(cached.hours || []);
+                    setPlayerIndex((prev) => {
+                        if (!Number.isFinite(prev)) return 0;
+                        return Math.max(0, Math.min((cached.frames?.length || 1) - 1, Math.trunc(prev)));
+                    });
+                }
+                return cached;
+            }
+
+            const inflight = playerManifestInflightRef.current.get(d);
+            if (inflight) return inflight;
+
+            const promise = (async () => {
+                setPlayerLoading(true);
+                setPlayerError(null);
+                try {
+                    const data = await fetchAndroidScreenshotDayManifest(selectedDeviceId, d, { maxFiles: 30000 });
+                    const frames = Array.isArray(data?.frames) ? data.frames : [];
+                    const hours = Array.isArray(data?.hours) ? data.hours : [];
+                    const result = { day: d, frames, hours };
+                    playerManifestCacheRef.current.set(d, result);
+
+                    const dayChanged = playerDay !== d;
+                    setPlayerDay(d);
+                    setPlayerFrames(frames);
+                    setPlayerHours(hours);
+                    setPlayerIndex((prev) => {
+                        if (!Number.isFinite(prev)) return 0;
+                        return Math.max(0, Math.min(frames.length - 1, Math.trunc(prev)));
+                    });
+                    if (dayChanged) clearPlayerFrameCache();
+                    return result;
+                } catch (e) {
+                    setPlayerFrames([]);
+                    setPlayerHours([]);
+                    setPlayerError(e?.message || 'Erreur player');
+                    return null;
+                } finally {
+                    setPlayerLoading(false);
+                    playerManifestInflightRef.current.delete(d);
+                }
+            })();
+
+            playerManifestInflightRef.current.set(d, promise);
+            return promise;
+        },
+        [clearPlayerFrameCache, playerDay, playerFrames, selectedDeviceId]
+    );
+
     const resetScreenActivity = useCallback(() => {
         setScreenDays([]);
         setScreenDaysLoading(false);
@@ -308,11 +466,16 @@ export default function AndroidView() {
         setPlayerDay('');
         setPlayerHour(null);
         setPlayerFrames([]);
+        setPlayerHours([]);
         setPlayerLoading(false);
         setPlayerError(null);
         setPlayerIndex(0);
+        setPlayerScrubbing(false);
         setPlayerSpeed(1);
-    }, [stopPlayer]);
+        playerManifestCacheRef.current.clear();
+        playerManifestInflightRef.current.clear();
+        clearPlayerFrameCache();
+    }, [clearPlayerFrameCache, stopPlayer]);
 
     useEffect(() => {
         const boot = async () => {
@@ -382,7 +545,7 @@ export default function AndroidView() {
         if (!playerPlaying) return;
         if (!Array.isArray(playerFrames) || playerFrames.length <= 1) return;
 
-        const baseFps = 6;
+        const baseFps = 2;
         const speed = Number(playerSpeed) || 1;
         const fps = Math.max(1, Math.min(60, Math.round(baseFps * speed)));
         const intervalMs = Math.round(1000 / fps);
@@ -408,6 +571,62 @@ export default function AndroidView() {
         if (!Array.isArray(playerFrames) || playerFrames.length === 0) return;
         if (playerIndex >= playerFrames.length - 1) stopPlayer();
     }, [playerFrames, playerIndex, playerPlaying, stopPlayer, viewerMode]);
+
+    useEffect(() => {
+        if (viewerMode !== 'player') return;
+        if (!playerFrames.length) return;
+        requestFrameByIndex(playerIndex, { expiresIn: playerScrubbing ? 120 : 300 }).catch(() => {});
+    }, [playerFrames.length, playerIndex, playerScrubbing, requestFrameByIndex, viewerMode]);
+
+    useEffect(() => {
+        if (viewerMode !== 'player') return;
+        if (!playerFrames.length) return;
+
+        const shouldPrefetch =
+            !playerPlaying ||
+            playerScrubbing ||
+            Math.abs(playerIndex - Number(playerPrefetchCursorRef.current || 0)) >= 8;
+        if (!shouldPrefetch) return;
+        playerPrefetchCursorRef.current = playerIndex;
+
+        const ahead = playerScrubbing ? 3 : playerPlaying ? 24 : 10;
+        const behind = playerScrubbing ? 1 : playerPlaying ? 4 : 3;
+        const maxRequests = playerScrubbing ? 1 : playerPlaying ? 2 : 2;
+        const expiresIn = playerScrubbing ? 120 : 300;
+
+        const targets = [playerIndex];
+        for (let i = 1; i <= ahead; i += 1) targets.push(playerIndex + i);
+        for (let i = 1; i <= behind; i += 1) targets.push(playerIndex - i);
+
+        const bounded = targets.filter((i) => Number.isFinite(i) && i >= 0 && i < playerFrames.length);
+        const fetchList = [];
+
+        for (const i of bounded) {
+            const frame = playerFrames[i];
+            const frameName = String(frame?.name || '');
+            if (!frameName) continue;
+            const key = getPlayerCacheKey(playerDay, frameName);
+            if (playerFrameCacheRef.current.has(key) || playerFrameInflightRef.current.has(key)) continue;
+            fetchList.push(i);
+            if (fetchList.length >= maxRequests) break;
+        }
+
+        if (fetchList.length > 0) {
+            Promise.allSettled(fetchList.map((i) => requestFrameByIndex(i, { expiresIn }))).catch(() => {});
+        }
+
+        evictFrameCache();
+    }, [
+        evictFrameCache,
+        getPlayerCacheKey,
+        playerDay,
+        playerFrames,
+        playerIndex,
+        playerPlaying,
+        playerScrubbing,
+        requestFrameByIndex,
+        viewerMode
+    ]);
 
     // Load days when entering Screen activity
     useEffect(() => {
@@ -468,6 +687,24 @@ export default function AndroidView() {
         };
     }, [historyMode, selectedDeviceId, selectedScreenDay]);
 
+    useEffect(() => {
+        if (historyMode !== 'screen_activity') return;
+        if (!selectedDeviceId || !selectedScreenDay) return;
+
+        let cancelled = false;
+        loadPlayerManifest(selectedScreenDay)
+            .then((data) => {
+                if (cancelled) return;
+                if (!data?.frames?.length) return;
+                requestFrameByIndex(0, { expiresIn: 300 }).catch(() => {});
+            })
+            .catch(() => {});
+
+        return () => {
+            cancelled = true;
+        };
+    }, [historyMode, loadPlayerManifest, requestFrameByIndex, selectedDeviceId, selectedScreenDay]);
+
     const startPlayerForHour = useCallback(
         async (hour) => {
             if (!selectedDeviceId) return;
@@ -479,27 +716,29 @@ export default function AndroidView() {
             setViewerMode('player');
             setAutoRefreshScreenshot(false);
             setPlayerError(null);
-            setPlayerLoading(true);
             stopPlayer();
-
-            setPlayerDay(day);
             setPlayerHour(h);
-            setPlayerFrames([]);
-            setPlayerIndex(0);
 
-            try {
-                const data = await fetchAndroidScreenshotFrames(selectedDeviceId, day, h, { limit: 1200 });
-                const frames = Array.isArray(data?.frames) ? data.frames : [];
-                setPlayerFrames(frames);
+            const manifest = await loadPlayerManifest(day);
+            const frames = Array.isArray(manifest?.frames) ? manifest.frames : [];
+            if (!frames.length) {
                 setPlayerIndex(0);
-                setPlayerPlaying(frames.length > 1);
-            } catch (e) {
-                setPlayerError(e?.message || 'Erreur player');
-            } finally {
-                setPlayerLoading(false);
+                return;
             }
+
+            const hours = Array.isArray(manifest?.hours) ? manifest.hours : [];
+            const byHour = hours.find((x) => Number(x?.hour) === h);
+            let seekIndex = Number(byHour?.firstIndex);
+            if (!Number.isFinite(seekIndex)) {
+                const fallback = frames.findIndex((f) => Number(f?.hour) === h);
+                seekIndex = fallback >= 0 ? fallback : 0;
+            }
+
+            const bounded = Math.max(0, Math.min(frames.length - 1, Math.trunc(seekIndex)));
+            setPlayerIndex(bounded);
+            requestFrameByIndex(bounded, { expiresIn: 300 }).catch(() => {});
         },
-        [selectedDeviceId, selectedScreenDay, stopPlayer]
+        [loadPlayerManifest, requestFrameByIndex, selectedDeviceId, selectedScreenDay, stopPlayer]
     );
 
     const buildPayload = useCallback(() => {
@@ -719,6 +958,81 @@ export default function AndroidView() {
             : [];
         return items;
     }, [events]);
+
+    const currentPlayerFrame = useMemo(() => {
+        if (!Array.isArray(playerFrames) || playerFrames.length === 0) return null;
+        const i = Math.max(0, Math.min(playerFrames.length - 1, Number(playerIndex) || 0));
+        return playerFrames[i] || null;
+    }, [playerFrames, playerIndex]);
+
+    const currentPlayerCached = useMemo(() => {
+        const frameName = String(currentPlayerFrame?.name || '');
+        if (!frameName || !playerDay) return null;
+        const key = getPlayerCacheKey(playerDay, frameName);
+        return playerFrameCacheRef.current.get(key) || null;
+    }, [currentPlayerFrame, getPlayerCacheKey, playerDay, playerFrameVersion]);
+
+    const nearestPlayerCached = useMemo(() => {
+        if (currentPlayerCached?.url) return currentPlayerCached;
+        if (!playerDay || !playerFrames.length) return null;
+        const center = Math.max(0, Math.min(playerFrames.length - 1, Number(playerIndex) || 0));
+        const radius = 24;
+        for (let step = 1; step <= radius; step += 1) {
+            const left = center - step;
+            if (left >= 0) {
+                const leftName = String(playerFrames[left]?.name || '');
+                if (leftName) {
+                    const leftCached = playerFrameCacheRef.current.get(getPlayerCacheKey(playerDay, leftName));
+                    if (leftCached?.url) return leftCached;
+                }
+            }
+            const right = center + step;
+            if (right < playerFrames.length) {
+                const rightName = String(playerFrames[right]?.name || '');
+                if (rightName) {
+                    const rightCached = playerFrameCacheRef.current.get(getPlayerCacheKey(playerDay, rightName));
+                    if (rightCached?.url) return rightCached;
+                }
+            }
+        }
+        return null;
+    }, [currentPlayerCached, getPlayerCacheKey, playerDay, playerFrames, playerFrameVersion, playerIndex]);
+
+    useEffect(() => {
+        if (viewerMode !== 'player') return;
+        if (!playerFrames.length) return;
+        if (currentPlayerCached?.url && currentPlayerCached.url !== playerDisplayedUrl) {
+            setPlayerPendingUrl(currentPlayerCached.url);
+            setPlayerPendingIndex(Math.max(0, Math.min(playerFrames.length - 1, Number(playerIndex) || 0)));
+            return;
+        }
+        if (!playerDisplayedUrl && nearestPlayerCached?.url) {
+            setPlayerDisplayedUrl(nearestPlayerCached.url);
+        }
+    }, [
+        currentPlayerCached,
+        nearestPlayerCached,
+        playerDisplayedUrl,
+        playerFrames.length,
+        playerIndex,
+        viewerMode
+    ]);
+
+    const commitPendingFrameIfCurrent = useCallback((target) => {
+        const loadedUrl = String(target?.getAttribute('src') || '');
+        const loadedIndex = Number(target?.getAttribute('data-index'));
+        setPlayerPendingUrl((pending) => {
+            if (!pending || pending !== loadedUrl) return pending;
+            setPlayerDisplayedUrl(loadedUrl);
+            if (Number.isFinite(loadedIndex)) setPlayerPendingIndex(loadedIndex);
+            return '';
+        });
+    }, []);
+
+    const clearPendingFrameIfCurrent = useCallback((target) => {
+        const loadedUrl = String(target?.getAttribute('src') || '');
+        setPlayerPendingUrl((pending) => (pending && pending === loadedUrl ? '' : pending));
+    }, []);
 
     if (loading) {
         return (
@@ -1172,6 +1486,11 @@ export default function AndroidView() {
                                                         value={selectedScreenDay}
                                                         onChange={(e) => {
                                                             stopPlayer();
+                                                            setPlayerDay('');
+                                                            setPlayerFrames([]);
+                                                            setPlayerHours([]);
+                                                            setPlayerIndex(0);
+                                                            clearPlayerFrameCache();
                                                             setSelectedScreenDay(e.target.value);
                                                         }}
                                                         disabled={screenDaysLoading || !screenDays?.length}
@@ -1213,8 +1532,10 @@ export default function AndroidView() {
                                                                 className="android-hour-card"
                                                                 onClick={() => startPlayerForHour(h.hour)}
                                                             >
-                                                                <div className="android-hour-title">{pad2(h.hour)}:00</div>
-                                                                <div className="android-muted">{h.count} frame(s)</div>
+                                                                <div className="android-hour-head">
+                                                                    <div className="android-hour-title">{pad2(h.hour)}:00</div>
+                                                                    <div className="android-muted android-hour-count">{h.count} frame(s)</div>
+                                                                </div>
                                                                 {h?.middleUrl ? (
                                                                     <img
                                                                         className="android-hour-thumb"
@@ -1337,9 +1658,17 @@ export default function AndroidView() {
                                             role="tab"
                                             aria-selected={viewerMode === 'player'}
                                             className={`conversions-pagination-btn${viewerMode === 'player' ? ' is-active' : ''}`}
-                                            onClick={() => {
+                                            onClick={async () => {
                                                 setViewerMode('player');
                                                 setAutoRefreshScreenshot(false);
+                                                const day = String(selectedScreenDay || '');
+                                                if (!day) return;
+                                                const manifest = await loadPlayerManifest(day);
+                                                if (manifest?.frames?.length) {
+                                                    requestFrameByIndex(Math.min(playerIndex, manifest.frames.length - 1), {
+                                                        expiresIn: 300
+                                                    }).catch(() => {});
+                                                }
                                             }}
                                         >
                                             Player
@@ -1355,7 +1684,6 @@ export default function AndroidView() {
                                     {viewerMode === 'player' ? (
                                         <div className="android-player">
                                             {playerError ? <div className="error">{playerError}</div> : null}
-                                            {playerLoading ? <div className="android-muted">Chargement des frames…</div> : null}
 
                                             {playerFrames?.length ? (
                                                 <div className="android-player-surface">
@@ -1371,12 +1699,25 @@ export default function AndroidView() {
                                                         {/* overlay is handled by CSS */}
                                                     </button>
 
-                                                    <img
-                                                        className="android-screenshot android-player-frame"
-                                                        src={playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url}
-                                                        alt="Player frame"
-                                                        loading="eager"
-                                                    />
+                                                    {playerDisplayedUrl || nearestPlayerCached?.url ? (
+                                                        <img
+                                                            className="android-screenshot android-player-frame"
+                                                            src={playerDisplayedUrl || nearestPlayerCached?.url}
+                                                            alt="Player frame"
+                                                            loading="eager"
+                                                        />
+                                                    ) : null}
+                                                    {playerPendingUrl && playerPendingUrl !== playerDisplayedUrl ? (
+                                                        <img
+                                                            className="android-player-preload"
+                                                            src={playerPendingUrl}
+                                                            data-index={String(playerPendingIndex)}
+                                                            alt=""
+                                                            loading="eager"
+                                                            onLoad={(e) => commitPendingFrameIfCurrent(e.currentTarget)}
+                                                            onError={(e) => clearPendingFrameIfCurrent(e.currentTarget)}
+                                                        />
+                                                    ) : null}
 
                                                     <div className="android-player-overlay" aria-hidden={playerLoading ? 'true' : 'false'}>
                                                         <input
@@ -1385,6 +1726,12 @@ export default function AndroidView() {
                                                             min={0}
                                                             max={Math.max(0, playerFrames.length - 1)}
                                                             value={Math.min(playerIndex, playerFrames.length - 1)}
+                                                            onPointerDown={() => setPlayerScrubbing(true)}
+                                                            onPointerUp={() => setPlayerScrubbing(false)}
+                                                            onMouseDown={() => setPlayerScrubbing(true)}
+                                                            onMouseUp={() => setPlayerScrubbing(false)}
+                                                            onTouchStart={() => setPlayerScrubbing(true)}
+                                                            onTouchEnd={() => setPlayerScrubbing(false)}
                                                             onChange={(e) => {
                                                                 stopPlayer();
                                                                 setPlayerIndex(Number(e.target.value));
@@ -1449,24 +1796,13 @@ export default function AndroidView() {
                                                                 x{fmtSpeed(playerSpeed)}
                                                             </button>
 
-                                                            {playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url ? (
-                                                                <a
-                                                                    className="android-player-btn android-player-link"
-                                                                    href={playerFrames[Math.min(playerIndex, playerFrames.length - 1)]?.url}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    aria-label="Ouvrir l’image dans un nouvel onglet"
-                                                                >
-                                                                    <PlayerIcon name="external" />
-                                                                </a>
-                                                            ) : null}
                                                         </div>
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="android-muted">
                                                     {playerDay && playerHour !== null
-                                                        ? 'Aucune frame sur cette tranche horaire (ou scan limité).'
+                                                        ? 'Aucune frame sur cette journée (ou scan limité).'
                                                         : 'Choisis une tranche horaire dans Historic → Screen activity.'}
                                                 </div>
                                             )}
