@@ -368,6 +368,12 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+.android-player-btn-label {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .android-player-btn:hover {
     background: rgba(0, 0, 0, 0.28);
     border-color: rgba(255, 255, 255, 0.26);

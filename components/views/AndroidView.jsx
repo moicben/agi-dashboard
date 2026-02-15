@@ -165,24 +165,6 @@ export default function AndroidView() {
                 </svg>
             );
         }
-        if (name === 'rewind10') {
-            return (
-                <svg {...common} aria-hidden="true">
-                    <path {...stroke} d="M12 8V4l-4 4 4 4V8z" />
-                    <path {...stroke} d="M12 4a8 8 0 1 1-7.2 4.5" />
-                    <path {...stroke} d="M14.5 14.5h-2.3l1.6-2.2c.4-.6.7-1.1.7-1.7 0-.8-.6-1.4-1.4-1.4-.8 0-1.3.5-1.5 1.3" />
-                </svg>
-            );
-        }
-        if (name === 'forward10') {
-            return (
-                <svg {...common} aria-hidden="true">
-                    <path {...stroke} d="M12 8V4l4 4-4 4V8z" />
-                    <path {...stroke} d="M12 4a8 8 0 1 0 7.2 4.5" />
-                    <path {...stroke} d="M9.5 14.5h-2.3l1.6-2.2c.4-.6.7-1.1.7-1.7 0-.8-.6-1.4-1.4-1.4-.8 0-1.3.5-1.5 1.3" />
-                </svg>
-            );
-        }
         if (name === 'external') {
             return (
                 <svg {...common} aria-hidden="true">
@@ -1746,11 +1728,11 @@ export default function AndroidView() {
                                                                 aria-label="Reculer de 10"
                                                                 onClick={() => {
                                                                     if (!playerFrames?.length) return;
-                                                                    setPlayerIndex((i) => Math.max(0, i - 10));
+                                                                    setPlayerIndex((i) => Math.max(0, i - 30));
                                                                     stopPlayer();
                                                                 }}
                                                             >
-                                                                <PlayerIcon name="rewind10" />
+                                                                <span className="android-player-btn-label">-10</span>
                                                             </button>
 
                                                             <button
@@ -1770,11 +1752,11 @@ export default function AndroidView() {
                                                                 aria-label="Avancer de 10"
                                                                 onClick={() => {
                                                                     if (!playerFrames?.length) return;
-                                                                    setPlayerIndex((i) => Math.min(playerFrames.length - 1, i + 10));
+                                                                    setPlayerIndex((i) => Math.min(playerFrames.length - 1, i + 30));
                                                                     stopPlayer();
                                                                 }}
                                                             >
-                                                                <PlayerIcon name="forward10" />
+                                                                <span className="android-player-btn-label">+10</span>
                                                             </button>
 
                                                             <div className="android-player-spacer" />
