@@ -370,7 +370,9 @@
 
 .android-player-btn-label {
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.92);
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
     line-height: 1;
 }
 
