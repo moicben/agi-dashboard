@@ -1,0 +1,468 @@
+/* TempMail view (dashboard) */
+
+.tempmail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.tempmail-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-0);
+}
+
+.tempmail-meta {
+    display: flex;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* Nouveau layout: une seule "card" contenant 3 panneaux */
+.tempmail-board {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.tempmail-inline-error {
+    color: #ff9b9b;
+    font-size: 12px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tempmail-board-body {
+    display: flex;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tempmail-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* Necessaire en flexbox pour permettre aux colonnes de retrecir correctement. */
+    min-width: 0;
+}
+
+.tempmail-pane + .tempmail-pane {
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tempmail-pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(10, 10, 10, 0.65);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tempmail-pane-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tempmail-pane-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.tempmail-pane-body {
+    padding: 12px 14px;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.tempmail-pane--emails .tempmail-pane-body {
+    padding: 0;
+}
+
+.tempmail-pane-toggle {
+    padding: 6px 10px;
+}
+
+/* Largeurs par mode (compact, sans scroll global: scroll interne par panneau) */
+.tempmail-pane--inboxes {
+    flex: 0 0 320px;
+}
+
+.tempmail-pane--emails {
+    flex: 1 1 520px;
+}
+
+.tempmail-pane--reader {
+    flex: 1 1 620px;
+}
+
+.tempmail-board--reading .tempmail-pane--inboxes {
+    /* On retracte, mais on garde la liste visible */
+    flex-basis: 240px;
+}
+
+.tempmail-board--reading .tempmail-pane--emails {
+    /* En lecture: on reduit la liste pour laisser la lecture respirer. */
+    flex: 0 0 420px;
+}
+
+.tempmail-board--reading .tempmail-pane--reader {
+    flex: 1 1 auto;
+}
+
+.tempmail-board--inbox .tempmail-pane--reader {
+    flex-basis: 0;
+    display: none;
+}
+
+.tempmail-board--empty .tempmail-pane--emails,
+.tempmail-board--empty .tempmail-pane--reader {
+    display: none;
+}
+
+.tempmail-pane,
+.tempmail-pane--inboxes,
+.tempmail-pane--emails,
+.tempmail-pane--reader {
+    transition: flex-basis 0.18s ease, opacity 0.18s ease;
+}
+
+/* Mode lecture: UI "boites" minimaliste */
+.tempmail-board--reading .tempmail-pane--inboxes .tempmail-pane-meta,
+.tempmail-board--reading .tempmail-pane--inboxes .tempmail-inline-error,
+.tempmail-board--reading .tempmail-pane--inboxes .tempmail-create {
+    display: none;
+}
+
+.tempmail-board--reading .tempmail-inbox-actions {
+    display: none;
+}
+
+.tempmail-board--reading .tempmail-inbox-main {
+    padding: 10px 10px;
+}
+
+.tempmail-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Ancien layout: garde les classes pour compat, mais la board n'utilise plus card-body */
+
+.tempmail-create {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.tempmail-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--control-bg);
+    color: var(--text-1);
+    border: var(--control-border);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    font-size: 13px;
+}
+
+.tempmail-input:focus {
+    outline: none;
+    border-color: var(--focus);
+    background: var(--control-hover-bg);
+}
+
+.tempmail-inboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tempmail-inbox {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.tempmail-inbox.is-active {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.tempmail-inbox-main {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    text-align: left;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.tempmail-inbox-main:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.tempmail-inbox-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-1);
+    margin-bottom: 4px;
+}
+
+.tempmail-inbox-email {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tempmail-badge {
+    background: #2a2a2a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-0);
+    font-size: 12px;
+    border-radius: 999px;
+    padding: 1px 8px;
+    line-height: 18px;
+}
+
+.tempmail-inbox-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 10px 10px 0;
+}
+
+.tempmail-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 7px;
+    min-width: 30px;
+}
+
+.tempmail-icon {
+    display: block;
+    width: 14px;
+    height: 14px;
+}
+
+.tempmail-danger {
+    border-color: rgba(255, 102, 102, 0.35) !important;
+    color: #ff9b9b !important;
+}
+
+.tempmail-danger:hover:not(:disabled) {
+    border-color: rgba(255, 102, 102, 0.55) !important;
+    background: rgba(255, 102, 102, 0.08) !important;
+}
+
+.tempmail-emails {
+    padding: 0;
+}
+
+.tempmail-email {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: inherit;
+    text-align: left;
+    padding: 12px 14px;
+    cursor: pointer;
+}
+
+.tempmail-email:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.tempmail-email.is-active {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.tempmail-email.is-unread {
+    border-left: 3px solid rgba(74, 158, 255, 0.8);
+}
+
+.tempmail-email-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.tempmail-email-from {
+    font-size: 13px;
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tempmail-email-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex: 0 0 auto;
+}
+
+.tempmail-email-subject {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+}
+
+.tempmail-email-preview {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tempmail-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.tempmail-detail-head {
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tempmail-detail-subject {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-0);
+    margin-bottom: 10px;
+}
+
+.tempmail-detail-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.tempmail-detail-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.tempmail-source {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 12px;
+    color: var(--text-1);
+}
+
+.tempmail-html {
+    background: rgba(0, 0, 0, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    color: var(--text-1);
+    font-size: 13px;
+}
+
+.tempmail-html img {
+    max-width: 100%;
+    height: auto;
+}
+
+.tempmail-html a {
+    color: #7fb7ff;
+    text-decoration: underline;
+}
+
+.tempmail-muted {
+    color: var(--text-muted);
+}
+
+.tempmail-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.tempmail-empty {
+    padding: 18px 14px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.tempmail-detail-actions {
+    display: flex;
+    gap: 8px;
+}
+
+@media (max-width: 1200px) {
+    .tempmail-pane--inboxes {
+        flex-basis: 300px;
+    }
+    .tempmail-board--reading .tempmail-pane--emails {
+        flex-basis: 280px;
+    }
+}
+
+@media (max-width: 820px) {
+    .tempmail-board-body {
+        flex-direction: column;
+    }
+    .tempmail-pane + .tempmail-pane {
+        border-left: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .tempmail-pane--inboxes,
+    .tempmail-pane--emails,
+    .tempmail-pane--reader {
+        flex: 1 1 auto;
+    }
+    .tempmail-board--reading .tempmail-pane--inboxes {
+        display: none;
+    }
+    .tempmail-board--inbox .tempmail-pane--reader {
+        display: none;
+    }
+}
+

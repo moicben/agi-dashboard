@@ -131,3 +131,23 @@ export function AndroidIcon(props) {
         </svg>
     );
 }
+
+export function TempMailIcon(props) {
+    return (
+        <svg {...baseSvgProps(props)}>
+            <path
+                d="M5.5 7.5H18.5C19.6 7.5 20.5 8.4 20.5 9.5V16.5C20.5 17.6 19.6 18.5 18.5 18.5H5.5C4.4 18.5 3.5 17.6 3.5 16.5V9.5C3.5 8.4 4.4 7.5 5.5 7.5Z"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M4.5 9.2L12 14.2L19.5 9.2"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}

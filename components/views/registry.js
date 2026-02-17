@@ -2,7 +2,8 @@ import ContainersView from './ContainersView.jsx';
 import CalendarView from './CalendarView.jsx';
 import AnalyticsView from './AnalyticsView.jsx';
 import AndroidView from './AndroidView.jsx';
-import { AnalyticsIcon, AndroidIcon, CalendarIcon, ContainersIcon } from '../ViewIcons.jsx';
+import TempMailView from './TempMailView.jsx';
+import { AnalyticsIcon, AndroidIcon, CalendarIcon, ContainersIcon, TempMailIcon } from '../ViewIcons.jsx';
 
 export const viewRegistry = [
     {
@@ -36,6 +37,14 @@ export const viewRegistry = [
         description: 'Planning et réunions',
         Component: CalendarView,
         Icon: CalendarIcon
+    },
+    {
+        id: 'temp-mail',
+        label: 'TempMail',
+        title: 'TempMail',
+        description: 'Emails temporaires',
+        Component: TempMailView,
+        Icon: TempMailIcon
     }
 ];
 

@@ -3,6 +3,7 @@
 /* Cards / panels (uniformise Analytics / Android / Containers / Calendar) */
 .analytics-card,
 .android-card,
+.tempmail-card,
 .grid-item {
     background: var(--panel-bg);
     border: var(--panel-border);
@@ -13,6 +14,7 @@
 /* Hover uniforme */
 .analytics-card:hover,
 .android-card:hover,
+.tempmail-card:hover,
 .grid-item:hover {
     border-color: var(--control-hover-border);
 }
@@ -20,6 +22,7 @@
 /* Headers de cards */
 .analytics-card-header,
 .android-card-header,
+.tempmail-card-header,
 .grid-item-header {
     background: rgba(10, 10, 10, 0.9);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -27,7 +30,8 @@
 
 /* Titres de cards (typo cohérente) */
 .analytics-card-title,
-.android-card-title {
+.android-card-title,
+.tempmail-card-title {
     color: var(--text-muted);
     font-size: 12px;
     font-weight: 400;
