@@ -7,7 +7,7 @@ import {
     fetchAndroidScreenshotDayManifest,
     fetchAndroidLatestScreenshot,
     fetchAndroidScreenshotDayIndex,
-    fetchAndroidScreenshotDays,
+    fetchAndroidScreenshotDays, 
     fetchAndroidScreenshotFrameUrl,
     sendAndroidCommand
 } from '../../lib/api.js';
