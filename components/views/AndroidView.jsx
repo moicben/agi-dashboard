@@ -10,7 +10,7 @@ import {
     fetchAndroidScreenshotDays, 
     fetchAndroidScreenshotFrameUrl,
     sendAndroidCommand
-} from '../../lib/api.js';
+} from '../../lib/api.js'; 
 
 const COMMAND_TYPES = [
     { value: 'tap', label: 'Tap' },
