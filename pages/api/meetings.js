@@ -48,6 +48,7 @@ export default async function handler(req, res) {
       .select(`
         id,
         participant_email,
+        meeting_title,
         meeting_start_at,
         meeting_url,
         booking_email,
@@ -101,7 +102,7 @@ export default async function handler(req, res) {
         meeting_start_at: booking.meeting_start_at,
         meeting_end_at: end ? end.toISOString() : null,
         meeting_duration_minutes: durationMinutes,
-        meeting_title: 'Rendez-vous',
+        meeting_title: booking.meeting_title || null,
         meeting_url: booking.meeting_url,
         booking_email: booking.booking_email,
         created_at: booking.created_at,
