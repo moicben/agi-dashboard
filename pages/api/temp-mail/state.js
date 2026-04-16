@@ -31,7 +31,10 @@ export default async function handler(req, res) {
             emails: emails || []
         });
     } catch (error) {
-        const payload = { error: 'Erreur /temp-mail/state', message: error?.message || String(error) };
+        const payload = {
+            error: 'Erreur /temp-mail/state',
+            message: error?.message || String(error)
+        };
         if (error?.code === 'SUPABASE_ENV_MISSING') payload.missingVariables = error.missingVariables;
         return res.status(500).json(payload);
     }
