@@ -18,8 +18,8 @@ export default async function handler(req, res) {
 
     try {
         const supabase = getSupabaseClient({
-            urlEnv: 'TEMPMAIL_SUPABASE_URL',
-            keyEnv: 'TEMPMAIL_SUPABASE_SERVICE_ROLE_KEY'
+            urlEnv: 'SUPABASE_URL',
+            keyEnv: 'SUPABASE_SERVICE_ROLE_KEY'
         });
 
         if (req.method === 'GET') {
