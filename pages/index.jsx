@@ -1,4 +1,4 @@
-import Head from 'next/head';
+import Head from 'next/head'; 
 import { useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout.jsx';
